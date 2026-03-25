@@ -21,9 +21,9 @@ A simple web application for analyzing Python code quality. This is an MCA minor
 - Maintainability calculation
 
 ✅ **Quality Scoring**
-- Style Score (0-40)
-- Complexity Score (0-30)
-- Maintainability Score (0-30)
+- Style Score (0-60)
+- Complexity Score (0-20)
+- Maintainability Score (0-20)
 - **Total Score: 0-100**
 
 ✅ **Results Dashboard**
