@@ -1,0 +1,192 @@
+﻿<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>CodeInsight | Dashboard</title>
+<!-- Tailwind CSS CDN with plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Google Fonts: Inter -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              purple: '#6366f1',
+              blue: '#3b82f6',
+              dark: '#0f172a',
+            }
+          }
+        }
+      }
+    }
+  </script>
+<style data-purpose="animated-background">
+    /* Animated mesh gradient background mimicking the provided screenshot style */
+    body {
+      background: linear-gradient(-45deg, #0f172a, #1e1b4b, #2e1065, #0f172a);
+      background-size: 400% 400%;
+      animation: gradient 15s ease infinite;
+      min-height: 100vh;
+      color: #f8fafc;
+    }
+
+    @keyframes gradient {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    /* Glassmorphism utility */
+    .glass-card {
+      background: rgba(255, 255, 255, 0.03);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    }
+
+    .glass-nav {
+      background: rgba(15, 23, 42, 0.7);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+  </style>
+<style data-purpose="ui-animations">
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-in {
+      animation: fadeIn 0.6s ease-out forwards;
+    }
+    .delay-1 { animation-delay: 0.1s; opacity: 0; }
+    .delay-2 { animation-delay: 0.2s; opacity: 0; }
+
+    /* Table row hover effect */
+    .table-row-hover:hover {
+      background: rgba(255, 255, 255, 0.05);
+      transition: background 0.3s ease;
+    }
+  </style>
+</head>
+<body class="font-sans antialiased">
+<!-- BEGIN: Navigation -->
+<nav class="glass-nav fixed top-0 w-full z-50">
+<div class="px-4 sm:px-6 lg:px-8">
+<div class="flex justify-between h-16 items-center">
+<!-- Logo Section -->
+<div class="flex items-center space-x-3">
+<div class="w-10 h-10 bg-gradient-to-br from-brand-purple to-brand-blue rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
+<svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<span class="text-xl font-bold tracking-tight text-white">CodeInsight</span>
+<button class="hidden sm:flex items-center px-4 py-1.5 rounded-full text-xs font-bold bg-gradient-to-r from-amber-400 to-orange-500 text-slate-900 hover:shadow-[0_0_15px_rgba(251,191,36,0.5)] transition-all transform hover:scale-105 ml-4">UPGRADE PLAN</button>
+</div>
+<!-- Navigation Links -->
+<div class="flex items-center space-x-4 sm:space-x-8">
+<span class="text-sm font-medium text-slate-300">Welcome, <span class="text-white">{{ user[1] if user else 'User' }}</span><span class="ml-2 px-2 py-0.5 bg-brand-purple/20 text-brand-purple text-[10px] font-bold rounded border border-brand-purple/40 uppercase tracking-tighter">{{ user_plan|default('Free') }}</span></span>
+<div class="hidden md:flex space-x-6">
+<a class="text-sm font-medium text-slate-300 hover:text-white transition-colors" href="{{ url_for('about') }}">Learn</a>
+<a class="text-sm font-medium text-slate-300 hover:text-white transition-colors" href="{{ url_for('settings') }}">Settings</a>
+</div>
+<a class="px-4 py-2 rounded-lg text-sm font-semibold bg-white/5 hover:bg-white/10 text-white border border-white/10 transition-all" href="{{ url_for('logout') }}">
+            Logout
+          </a>
+</div>
+</div>
+</div>
+</nav>
+<!-- END: Navigation -->
+<!-- BEGIN: Main Content -->
+<main class="pt-24 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+<!-- BEGIN: Header Section -->
+<section class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10 animate-fade-in">
+<div data-purpose="page-title">
+<h1 class="text-4xl font-bold text-white tracking-tight">Dashboard</h1>
+<p class="text-slate-400 mt-1">Manage and analyze your Python source files.</p>
+</div>
+<a href="{{ url_for('upload') }}" class="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-xl text-white bg-gradient-to-r from-brand-purple to-brand-blue hover:opacity-90 transition-all shadow-lg shadow-indigo-500/30">
+<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+        Upload New File
+      </a>
+</section>
+<!-- END: Header Section -->
+<!-- BEGIN: Files Table Card -->
+<section class="glass-card rounded-2xl overflow-hidden animate-fade-in delay-1" data-purpose="files-container">
+<div class="p-6 border-b border-white/10 flex items-center justify-between">
+<h2 class="text-lg font-semibold text-white">Your Files</h2>
+<span class="px-3 py-1 bg-white/5 rounded-full text-xs font-medium text-slate-400">Total: {{ files|length if files is not none else 0 }} Files</span>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-white/5">
+<th class="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-400">Filename</th>
+<th class="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-400">Uploaded</th>
+<th class="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-400">Language</th>
+<th class="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-400 text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-white/5">
+{% if files %}
+    {% for file in files %}
+        <tr class="table-row-hover">
+            <td class="px-6 py-4 whitespace-nowrap">
+                <div class="flex items-center">
+                    <div class="p-2 bg-blue-500/10 rounded-lg mr-3">
+                        <svg class="w-5 h-5 text-blue-400" fill="currentColor" viewbox="0 0 20 20">
+                            <path d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"></path>
+                        </svg>
+                    </div>
+                    <span class="text-sm font-medium text-white">{{ file[1] }}</span>
+                </div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-300">{{ file[2] }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-300">Python</td>
+            <td class="px-6 py-4 whitespace-nowrap text-right">
+                <a href="{{ url_for('analyze', file_id=file[0]) }}" class="px-4 py-1.5 bg-brand-purple/20 hover:bg-brand-purple/30 text-brand-purple text-xs font-bold rounded-lg border border-brand-purple/30 transition-all uppercase tracking-wide">
+                    Analyze
+                </a>
+            </td>
+        </tr>
+    {% endfor %}
+{% else %}
+    <tr>
+        <td colspan="4" class="px-6 py-10 text-center text-sm text-slate-300">
+            You haven't uploaded any files yet. Click "Upload New File" to get started.
+        </td>
+    </tr>
+{% endif %}
+</tbody>
+</table>
+</div>
+<!-- Table Footer / Pagination Placeholder -->
+<div class="px-6 py-4 border-t border-white/10 flex items-center justify-between text-slate-400 text-sm">
+<span>Showing 4 of 4 results</span>
+<div class="flex space-x-2">
+<button class="p-1 hover:text-white transition-colors cursor-not-allowed opacity-50"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M15 19l-7-7 7-7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg></button>
+<button class="p-1 hover:text-white transition-colors cursor-not-allowed opacity-50"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg></button>
+</div>
+</div>
+</section>
+<!-- END: Files Table Card -->
+</main>
+<!-- END: Main Content -->
+<!-- BEGIN: Footer -->
+<footer class="mt-auto py-8 text-center animate-fade-in delay-2">
+<p class="text-slate-500 text-xs tracking-widest uppercase">
+      © 2023 CODEINSIGHT ANALYSIS TOOL • VERSION 1.0.4
+    </p>
+</footer>
+<!-- END: Footer -->
+</body></html>

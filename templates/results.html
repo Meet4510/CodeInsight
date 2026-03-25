@@ -1,0 +1,293 @@
+﻿<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>CodeInsight - Analysis Results</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script id="tailwind-config">tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#8b5cf6",
+                        "secondary": "#3b82f6",
+                        "background-dark": "#050212",
+                        "glass-bg": "rgba(255, 255, 255, 0.03)",
+                    },
+                    fontFamily: {
+                        "display": ["Public Sans", "sans-serif"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
+                },
+            },
+        }</script>
+<style>
+        body {
+            font-family: 'Public Sans', sans-serif;
+            background: #050212;
+        }
+        .mesh-gradient {
+            background: 
+                radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), 
+                radial-gradient(at 50% 0%, hsla(225,39%,30%,1) 0, transparent 50%), 
+                radial-gradient(at 100% 0%, hsla(339,49%,30%,1) 0, transparent 50%),
+                radial-gradient(at 100% 100%, hsla(263,49%,20%,1) 0, transparent 50%),
+                radial-gradient(at 0% 100%, hsla(225,39%,20%,1) 0, transparent 50%);
+            background-attachment: fixed;
+        }
+        .glass {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+        .glass-glow {
+            box-shadow: 0 0 20px rgba(139, 92, 246, 0.1);
+        }
+    </style>
+</head>
+<body class="dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen mesh-gradient font-display">
+<!-- Top Navigation -->
+<header class="sticky top-0 z-50 glass border-b border-white/10 px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
+<div class="flex items-center gap-8">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 bg-gradient-to-br from-primary to-secondary rounded-xl flex items-center justify-center text-white shadow-lg shadow-primary/20">
+<svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<h2 class="text-xl font-bold tracking-tight text-white">CodeInsight</h2>
+</div>
+<nav class="hidden md:flex items-center gap-6">
+<a class="text-sm font-medium text-slate-400 hover:text-white transition-colors" href="{{ url_for('dashboard') }}">Dashboard</a>
+<a class="text-sm font-medium text-slate-400 hover:text-white transition-colors" href="#">Settings</a>
+</nav>
+</div>
+<div class="flex items-center gap-3">
+<button class="bg-white/10 hover:bg-white/20 border border-white/10 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-2">
+<span>Meet Lathidadiya</span>
+</button>
+<div class="w-10 h-10 rounded-full border border-white/20 overflow-hidden bg-white/5">
+<img alt="Avatar" class="w-full h-full object-cover shadow-inner" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCdQAKOba67NAwSIO96fb60ppC7RKX_RyECrCQLI-aSzy5V1-aN3Cl3yVB84nKqnm1IMUisCAPAbQ0cy2hSfK3hmT5rdfkpIBX5I_gVv1kAn-u4fixMQvMuBPv6hSEaMRYQppP7XxugzaaQ6EmEG31pe-xZ4xbO0ewAoQv28qiH1ckWPt1Od8I42FXWj3n1OEe4s430tny53eOgbFgstNsjNla4B44Hs86oHPsQ8tlen4KFSQbtkCOS3B1Wt6hDOjSy6lP8QfzH"/>
+</div>
+</div>
+</div>
+</header>
+<main class="max-w-7xl mx-auto px-4 py-8 space-y-8">
+<!-- Hero Title Section -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-6"><div class="space-y-2">
+<div class="flex items-center gap-2 text-primary font-semibold text-sm uppercase tracking-wider">
+<span class="material-symbols-outlined text-xs">analytics</span>
+                    Detailed Analysis Results
+                </div>
+<h1 class="text-4xl md:text-5xl font-black tracking-tight text-white">{{ filename }} <span class="text-white/40">v2.1</span></h1>
+<p class="text-slate-400">File: <code class="bg-primary/10 border border-primary/20 px-2 py-0.5 rounded text-primary">{{ original_filename }}</code> <span class="text-xs text-slate-500 ml-2">(analyzed: {{ analyzed_path }})</span></p>
+{% if refresh_message %}
+<div class="mt-3 px-4 py-3 rounded-xl bg-emerald-500/10 border border-emerald-400 text-emerald-200 text-sm font-medium">
+    <span class="font-semibold">✔</span> {{ refresh_message }}
+</div>
+{% endif %}
+</div>
+<div class="flex items-center gap-3 flex-nowrap">
+<a href="{{ url_for('generate_pdf', file_id=file_id) }}" class="glass px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 text-white hover:bg-white/10 transition-colors">
+<span class="material-symbols-outlined text-lg">download</span>
+                    Export Report
+                </a>
+                <a href="{{ url_for('analyze', file_id=file_id) }}" class="bg-gradient-to-r from-primary to-secondary text-white px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 shadow-lg shadow-primary/20 hover:scale-105 transition-transform">
+<span class="material-symbols-outlined text-lg">play_arrow</span>
+                    Re-run Analysis
+                </a>
+</div></div>
+<!-- KPI Cards Grid -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+{% set overall_label = 'Excellent' if score >= 90 else 'Good' if score >= 75 else 'Average' if score >= 50 else 'Poor' %}
+{% set overall_theme = 'emerald' if score >= 90 else 'blue' if score >= 75 else 'amber' if score >= 50 else 'pink' %}
+{% set overall_text = 'text-emerald-400' if score >= 90 else 'text-blue-400' if score >= 75 else 'text-amber-400' if score >= 50 else 'text-pink-400' %}
+{% set overall_bg = 'bg-emerald-500/10' if score >= 90 else 'bg-blue-500/10' if score >= 75 else 'bg-amber-500/10' if score >= 50 else 'bg-pink-500/10' %}
+{% set overall_border = 'border-emerald-300/40' if score >= 90 else 'border-blue-300/40' if score >= 75 else 'border-amber-300/40' if score >= 50 else 'border-pink-300/40' %}
+<div class="glass p-6 rounded-2xl relative overflow-hidden group border {{ overall_border }}" style="background-color: rgba(255,255,255,0.03);">
+<div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-25 transition-opacity {{ overall_text }}">
+<span class="material-symbols-outlined text-6xl">verified</span>
+</div>
+<p class="text-slate-400 font-medium mb-1">Overall Health</p>
+<div class="flex items-end gap-3">
+<h3 class="text-5xl font-black text-white">{{ score }}<span class="text-xl text-slate-500">/100</span></h3>
+</div>
+<p class="mt-2 text-xs font-semibold {{ overall_text }}">{{ overall_label }}</p>
+{% set overall_bar = 'bg-emerald-400' if score >= 90 else 'bg-blue-400' if score >= 75 else 'bg-amber-400' if score >= 50 else 'bg-pink-400' %}
+<div class="mt-4 w-full h-1.5 bg-white/10 rounded-full">
+<div class="h-full {{ overall_bar }} rounded-full" style="width: {{ score }}%"></div>
+</div>
+</div>
+<div class="glass p-6 rounded-2xl relative overflow-hidden group border border-white/10">
+<div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-25 transition-opacity text-secondary">
+<span class="material-symbols-outlined text-6xl">psychology</span>
+</div>
+<p class="text-slate-400 font-medium mb-1">Cyclomatic Complexity</p>
+<div class="flex items-end gap-3">
+{% set complexity_level = 'Low' if complexity < 5 else 'Medium' if complexity < 15 else 'High' %}
+{% set complexity_color = 'text-green-400' if complexity_level == 'Low' else 'text-yellow-400' if complexity_level == 'Medium' else 'text-red-400' %}
+<h3 class="text-5xl font-black {{ complexity_color }}">{{ complexity_level }}</h3>
+</div>
+<p class="mt-4 text-xs text-slate-500 font-medium">{{ critical_paths }} critical paths identified</p>
+</div>
+<div class="glass p-6 rounded-2xl relative overflow-hidden group border border-white/10">
+<div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-25 transition-opacity text-primary">
+<span class="material-symbols-outlined text-6xl">build</span>
+</div>
+<p class="text-slate-400 font-medium mb-1">Maintainability Index</p>
+<div class="flex items-end gap-3">
+{% set maintainability_level = 'High' if maintainability > 85 else 'Medium' if maintainability > 60 else 'Low' %}
+{% set maintainability_color = 'text-green-400' if maintainability_level == 'High' else 'text-yellow-400' if maintainability_level == 'Medium' else 'text-red-400' %}
+<h3 class="text-5xl font-black {{ maintainability_color }}">{{ maintainability_level }}</h3>
+</div>
+<p class="mt-4 text-xs text-slate-500 font-medium">Estimated debt: {{ technical_debt_hours }} hours</p>
+</div>
+</div>
+<!-- Detailed Breakdown Section -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+<!-- Score Breakdown (Bar Chart Style) -->
+<div class="glass p-8 rounded-2xl space-y-8"><div class="flex items-center justify-between">
+<h4 class="text-xl font-bold text-white">Category Metrics</h4>
+{% set performance = 'Excellent' if scores.total_score >= 90 else ('Good' if scores.total_score >= 75 else 'Needs Improvement') %}
+<span class="text-slate-400 text-sm font-medium">Performance: <span class="text-primary">{{ performance }}</span></span>
+</div>
+<div class="space-y-6">
+<div class="space-y-2">
+<div class="flex justify-between text-sm">
+<span class="text-slate-300 font-medium">Style Score</span>
+<span class="font-bold text-white">{{ scores.style_score }} / 60</span>
+</div>
+<div class="h-2 bg-white/5 rounded-full overflow-hidden">
+<div class="h-full bg-emerald-400" style="width: {{ scores.style_pct }}%"></div>
+</div>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between text-sm">
+<span class="text-slate-300 font-medium">Complexity Score</span>
+<span class="font-bold text-white">{{ scores.complexity_score }} / 20</span>
+</div>
+<div class="h-2 bg-white/5 rounded-full overflow-hidden">
+<div class="h-full bg-primary" style="width: {{ scores.complexity_pct }}%"></div>
+</div>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between text-sm">
+<span class="text-slate-300 font-medium">Maintainability Score</span>
+<span class="font-bold text-white">{{ scores.maintainability_score }} / 20</span>
+</div>
+<div class="h-2 bg-white/5 rounded-full overflow-hidden">
+<div class="h-full bg-secondary" style="width: {{ scores.maintainability_pct }}%"></div>
+</div>
+</div>
+</div></div>
+<!-- Improvement Suggestions -->
+<div class="glass p-8 rounded-2xl h-96 flex flex-col">
+    <div class="flex items-center justify-between mb-6 flex-shrink-0">
+        <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-emerald-400">lightbulb</span>
+            <h4 class="text-xl font-bold text-white">Improvement Suggestions</h4>
+        </div>
+        <span class="text-xs font-bold px-3 py-1 bg-white/5 border border-white/10 text-slate-300 rounded-full">{{ suggestions|length }} Total</span>
+    </div>
+    <div class="divide-y divide-white/5 overflow-y-auto flex-grow">
+        {% if suggestions %}
+            {% for suggestion in suggestions %}
+            <div class="p-6 flex items-start gap-4 hover:bg-white/5 transition-colors cursor-pointer">
+                <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+                    <span class="material-symbols-outlined">check_circle</span>
+                </div>
+                <div class="space-y-1 flex-grow">
+                    <div class="flex items-center justify-between">
+                        <h6 class="font-semibold text-white">Suggestion</h6>
+                        <span class="text-[10px] px-2 py-0.5 border border-emerald-500/50 text-emerald-500 rounded-full font-bold uppercase">Tip</span>
+                    </div>
+                    <p class="text-sm text-slate-400">{{ suggestion }}</p>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="p-6 text-slate-300">No suggestions at this time. Keep up the good work!</div>
+        {% endif %}
+    </div>
+</div>
+<!-- Issue Breakdown -->
+<div class="glass p-8 rounded-2xl overflow-x-auto lg:col-span-2">
+    <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-amber-400">warning</span>
+            <h4 class="text-xl font-bold text-white">Issue Breakdown</h4>
+        </div>
+        <span class="text-xs font-bold px-3 py-1 bg-white/5 border border-white/10 text-slate-300 rounded-full">{{ issues|length }} Total</span>
+    </div>
+
+    <table class="min-w-full text-left text-sm">
+        <thead class="bg-white/5 text-slate-300 uppercase tracking-wider text-xs">
+            <tr>
+                <th class="px-4 py-3">Issue Type</th>
+                <th class="px-4 py-3">Location</th>
+                <th class="px-4 py-3">Severity</th>
+                <th class="px-4 py-3">Action</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-white/5">
+            {% if issues %}
+                {% for issue in issues %}
+                <tr class="hover:bg-white/5">
+                    <td class="px-4 py-4 font-medium text-white">{{ issue.type if issue.type is defined else issue }}</td>
+                    <td class="px-4 py-4 text-slate-400">{{ issue.location if issue.location is defined else '' }}</td>
+                    <td class="px-4 py-4">
+                        {% set sev = issue.severity if issue.severity is defined else 'Info' %}
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold {% if sev|lower == 'critical' %}bg-red-500/15 text-red-300 border border-red-500/20{% elif sev|lower == 'medium' %}bg-amber-500/15 text-amber-300 border border-amber-500/20{% else %}bg-sky-500/15 text-sky-300 border border-sky-500/20{% endif %}">
+                            {{ sev|upper }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-4">
+                        <a href="#" class="text-primary font-semibold hover:underline">Fix</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            {% else %}
+                <tr>
+                    <td colspan="4" class="px-4 py-6 text-slate-300 text-center">No issues found. Great job!</td>
+                </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+</main>
+<footer class="mt-12 py-8 glass border-t border-white/10">
+<div class="max-w-7xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-4">
+<div class="text-sm text-slate-500">
+                © 2024 CodeInsight Platform. All rights reserved.
+            </div>
+<div class="flex items-center gap-6">
+<a class="text-xs font-bold text-slate-500 hover:text-white uppercase tracking-widest transition-colors" href="{{ url_for('about') }}">Documentation</a>
+<a class="text-xs font-bold text-slate-500 hover:text-white uppercase tracking-widest transition-colors" href="#">API Status</a>
+<a class="text-xs font-bold text-slate-500 hover:text-white uppercase tracking-widest transition-colors" href="#">Support</a>
+</div>
+</div>
+<script>
+// Enable issue rows to show details on click.
+// Clicking will show a simple modal-like alert and copy text to clipboard.
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.issue-row').forEach(el => {
+    el.addEventListener('click', () => {
+      const issue = el.dataset.issue;
+      if (!issue) return;
+      try {
+        navigator.clipboard.writeText(issue);
+      } catch (e) {
+        // ignore if clipboard unavailable
+      }
+      alert('Issue details copied to clipboard:\n\n' + issue);
+    });
+  });
+});
+</script>
+</footer>
+</body></html>

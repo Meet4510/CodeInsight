@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background: radial-gradient(circle at top left, #1e1b4b 0%, #0f172a 100%);
+            background-attachment: fixed;
+        }
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.4);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .nav-blur {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 10px;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#6366f1",
+                        "primary-container": "#4338ca",
+                        "on-primary-container": "#e0e7ff",
+                        "secondary": "#38bdf8",
+                        "surface": "#0f172a",
+                        "surface-container": "#1e293b",
+                        "surface-container-low": "#0f172a",
+                        "surface-container-lowest": "#020617",
+                        "on-surface": "#f1f5f9",
+                        "on-surface-variant": "#94a3b8",
+                        "outline-variant": "#334155",
+                        "background": "#0f172a"
+                    },
+                    fontFamily: {
+                        "headline": ["Inter", "sans-serif"],
+                        "body": ["Inter", "sans-serif"],
+                        "label": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.375rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+</head>
+<body class="text-on-surface font-body selection:bg-primary/30 min-h-screen">
+<!-- TopNavBar -->
+<nav class="fixed top-0 z-50 w-full flex justify-between items-center px-8 py-3 nav-blur border-b border-white/5">
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2">
+<div class="bg-indigo-600 p-1.5 rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-xl" style="font-variation-settings: 'FILL' 1;">code</span>
+</div>
+<span class="text-white font-bold tracking-tight text-lg">CodeInsight</span>
+</div>
+<button class="bg-[#f59e0b] text-black px-3 py-1 rounded-full font-bold text-[10px] uppercase tracking-wider hover:brightness-110 transition-all">Upgrade Plan</button>
+</div>
+<div class="hidden md:flex items-center gap-10">
+<a class="text-slate-400 hover:text-white transition-colors text-sm font-medium" href="{{ url_for('dashboard') }}">Dashboard</a>
+<a class="text-slate-400 hover:text-white transition-colors text-sm font-medium" href="#">Projects</a>
+<a class="text-white relative text-sm font-medium after:content-[''] after:absolute after:-bottom-5 after:left-0 after:w-full after:h-0.5 after:bg-white" href="{{ url_for('settings') }}">Settings</a>
+</div>
+<div class="flex items-center gap-6">
+<div class="hidden lg:flex items-center gap-2 text-slate-400 text-xs font-medium">
+                Welcome, <span class="text-white font-bold">{{ user[1] if user else 'User' }}</span>
+<span class="bg-indigo-900/50 text-indigo-400 border border-indigo-500/30 px-1.5 py-0.5 rounded text-[9px] font-bold">{{ user[3] if user and user|length > 3 else 'Free' }}</span>
+</div>
+<a class="text-slate-400 hover:text-white text-sm font-medium" href="#">Learn</a>
+<button class="bg-white/10 hover:bg-white/20 text-white px-4 py-1.5 rounded-lg text-sm font-medium transition-all">Logout</button>
+</div>
+</nav>
+<div class="flex pt-14 min-h-screen">
+<!-- Main Content Area centered -->
+<main class="flex-1 p-8 lg:p-12 overflow-y-auto">
+<header class="mb-12 max-w-4xl mx-auto text-center md:text-left">
+<h1 class="text-5xl font-bold text-white tracking-tight mb-4">
+                    Profile <span class="text-indigo-400 font-medium">Settings</span>
+</h1>
+<p class="text-slate-400 text-lg max-w-2xl mx-auto md:mx-0 font-light">
+                    Customize how your observatory identity appears across CodeInsight and manage your personal preferences.
+                </p>
+</header>
+{% if error %}
+<div class="max-w-4xl mx-auto p-4 rounded-lg bg-red-500/20 border border-red-400 text-red-100 mb-4">
+    {{ error }}
+</div>
+{% endif %}
+{% if success %}
+<div class="max-w-4xl mx-auto p-4 rounded-lg bg-emerald-500/20 border border-emerald-400 text-emerald-100 mb-4">
+    {{ success }}
+</div>
+{% endif %}
+<form action="{{ url_for('settings') }}" method="POST" class="max-w-4xl mx-auto space-y-8">
+<div class="max-w-4xl mx-auto space-y-8">
+<!-- Section: User Profile -->
+<section class="glass-panel p-8 rounded-2xl shadow-2xl relative overflow-hidden">
+<div class="absolute top-0 left-0 w-1 h-full bg-indigo-500/50"></div>
+<div class="flex items-start justify-between mb-8">
+<div>
+<h3 class="text-xl font-bold text-white mb-1">User Profile</h3>
+<p class="text-sm text-slate-400">Update your photo and personal details.</p>
+</div>
+<span class="material-symbols-outlined text-slate-600">badge</span>
+</div>
+<div class="flex flex-col md:flex-row gap-10">
+<div class="relative group mx-auto md:mx-0">
+<div class="w-36 h-36 rounded-2xl overflow-hidden bg-slate-800 border-2 border-indigo-500/30 relative">
+<img alt="Profile" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAgnj3vmVRcKxe6WHbn9pzTuBquqsH-YaIKiAwvjk4SJGH8JZ75pGEBc9tMaAjWmP1xJCEO7CsUU9GPkNlgl1-d6eroypPByv8acN8GFywPyFhsEd1-NAtUEwGlgtKmPVDQ6pZWUAp3UmRxccAEivVLDcoSBkl2GcZePVWMvlFyGjyTknLGY9aaCeaSuXBTBtClW58ix_bNW33TEx_SlciuV3NH12LB1JUAue_JVaQzdN-rGq4oosBcoJ_UoghmJHChFaZK8Sjv"/>
+<div class="absolute inset-0 bg-slate-900/60 flex flex-col items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300 cursor-pointer">
+<span class="material-symbols-outlined text-secondary text-2xl">photo_camera</span>
+<span class="text-[10px] font-bold text-secondary uppercase tracking-wider">Change</span>
+</div></div>
+</div>
+<div class="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="space-y-2">
+<label class="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 ml-1">Full Name</label>
+<input name="name" class="w-full bg-slate-950/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-1 focus:ring-indigo-500/50 transition-all font-medium" type="text" value="{{ user[1]|e if user else '' }}" required/>
+</div>
+<div class="space-y-2">
+<label class="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 ml-1">Email Address</label>
+<input name="email" class="w-full bg-slate-950/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-1 focus:ring-indigo-500/50 transition-all font-medium" type="email" value="{{ user[2]|e if user else '' }}" required/>
+</div>
+<div class="space-y-2">
+<label class="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 ml-1">New Password (optional)</label>
+<input name="password" class="w-full bg-slate-950/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-1 focus:ring-indigo-500/50 transition-all font-medium" type="password" placeholder="Enter new password"/>
+</div>
+<div class="space-y-2">
+<label class="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 ml-1">Confirm Password</label>
+<input name="confirm_password" class="w-full bg-slate-950/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-1 focus:ring-indigo-500/50 transition-all font-medium" type="password" placeholder="Confirm new password"/>
+</div>
+<div class="md:col-span-2 space-y-2">
+<label class="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 ml-1">Bio</label>
+<textarea name="bio" class="w-full bg-slate-950/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-1 focus:ring-indigo-500/50 transition-all font-medium resize-none" rows="3">{{ user[4]|e if user and user|length > 4 else '' }}</textarea>
+</div>
+</div>
+</div>
+</section>
+<!-- Section: Preferences (UI Theme Only) -->
+<section class="glass-panel p-8 rounded-2xl shadow-2xl">
+<div class="mb-8">
+<h3 class="text-xl font-bold text-white mb-1">Preferences</h3>
+<p class="text-sm text-slate-400">Environment configuration.</p>
+</div>
+<div class="space-y-6">
+<div class="space-y-2">
+<label class="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-500 ml-1">UI Theme</label>
+<div class="grid grid-cols-2 gap-4">
+<button class="flex items-center justify-center gap-2 py-3 rounded-xl border border-indigo-500/50 bg-indigo-500/10 text-white text-xs font-bold transition-all">
+<span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">dark_mode</span>
+                                    Dark
+                                </button>
+<button class="flex items-center justify-center gap-2 py-3 rounded-xl border border-white/5 bg-slate-950/50 text-slate-400 hover:border-white/20 text-xs font-bold transition-all">
+<span class="material-symbols-outlined text-[16px]">light_mode</span>
+                                    Light
+                                </button>
+</div>
+</div>
+</div>
+</section>
+<!-- Save Actions -->
+<div class="flex flex-col sm:flex-row gap-4 pt-4">
+<button type="submit" class="flex-1 py-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-base shadow-[0_10px_25px_-5px_rgba(79,70,229,0.4)] transition-all active:scale-[0.98]">
+                        Save Changes
+                    </button>
+<button type="button" onclick="window.location.href='{{ url_for('settings') }}'" class="flex-1 py-4 rounded-xl border border-white/5 text-slate-400 font-bold text-sm hover:bg-white/5 transition-colors">
+                        Discard Edits
+                    </button>
+</div>
+</div>
+</form>
+</main>
+</div>
+<!-- Mobile Navigation - visible only on small screens -->
+<nav class="md:hidden fixed bottom-0 left-0 right-0 nav-blur border-t border-white/5 flex justify-around items-center py-3 z-50">
+<a class="flex flex-col items-center gap-1 text-slate-500" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-[9px] font-bold">Home</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-slate-500" href="#">
+<span class="material-symbols-outlined">explore</span>
+<span class="text-[9px] font-bold">Explore</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-indigo-400" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">person</span>
+<span class="text-[9px] font-bold">Profile</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-slate-500" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-[9px] font-bold">Settings</span>
+</a>
+</nav>
+</body></html>

@@ -1,0 +1,6 @@
+Flask==3.0.0
+Flask-MySQLdb==1.0.1
+Werkzeug==3.0.0
+pylint==3.0.0
+radon==6.0.1
+reportlab==4.0.4

@@ -1,0 +1,371 @@
+﻿<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>CodeInsight - Advanced Intelligence</title>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            purple: '#6366f1',
+                            blue: '#3b82f6',
+                            dark: '#0f172a',
+                        },
+                        "primary": "#6366f1",
+                        "background-light": "#0f172a",
+                        "background-dark": "#0f172a",
+                    },
+                    fontFamily: {
+                        "display": ["Public Sans", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }</script>
+<style>
+        body {
+            background: linear-gradient(-45deg, #0f172a, #1e1b4b, #2e1065, #0f172a);
+            background-size: 400% 400%;
+            animation: gradient 15s ease infinite;
+            min-height: 100vh;
+            color: #f8fafc;
+        }
+
+        @keyframes gradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .glass-nav {
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .mesh-gradient {
+            background: transparent;
+        }
+
+        /* Anchor offset for fixed header */
+        #analysis,
+        #parameters,
+        #tools,
+        #faq {
+            scroll-margin-top: 6rem;
+        }
+    </style>
+</head>
+<body class="font-display bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen">
+<!-- Navigation -->
+<header class="sticky top-0 z-50 glass border-b border-white/10 px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
+<div class="flex items-center gap-8">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 bg-gradient-to-br from-primary to-secondary rounded-xl flex items-center justify-center text-white shadow-lg shadow-primary/20">
+<svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<h2 class="text-xl font-bold tracking-tight text-white">CodeInsight</h2>
+</div>
+<nav class="hidden md:flex items-center gap-6">
+<a class="text-sm font-medium text-slate-400 hover:text-white transition-colors" href="#analysis">Analysis</a>
+<a class="text-sm font-medium text-slate-400 hover:text-white transition-colors" href="#parameters">Parameters</a>
+<a class="text-sm font-medium text-slate-400 hover:text-white transition-colors" href="#tools">Tools</a>
+<a class="text-sm font-medium text-slate-400 hover:text-white transition-colors" href="#faq">FAQ</a>
+</nav>
+</div>
+<div class="flex items-center gap-3">
+<button class="bg-white/10 hover:bg-white/20 border border-white/10 text-white px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2">
+<span>Meet Lathidadiya</span>
+</button>
+<div class="w-10 h-10 rounded-full border border-white/20 overflow-hidden bg-white/5">
+<img alt="Avatar" class="w-full h-full object-cover shadow-inner" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCdQAKOba67NAwSIO96fb60ppC7RKX_RyECrCQLI-aSzy5V1-aN3Cl3yVB84nKqnm1IMUisCAPAbQ0cy2hSfK3hmT5rdfkpIBX5I_gVv1kAn-u4fixMQvMuBPv6hSEaMRYQppP7XxugzaaQ6EmEG31pe-xZ4xbO0ewAoQv28qiH1ckWPt1Od8I42FXWj3n1OEe4s430tny53eOgbFgstNsjNla4B44Hs86oHPsQ8tlen4KFSQbtkCOS3B1Wt6hDOjSy6lP8QfzH"/>
+</div>
+</div>
+</header>
+<!-- Hero Section -->
+<section id="analysis" class="relative pt-20 pb-32 overflow-hidden mesh-gradient">
+<div class="max-w-7xl mx-auto px-6 text-center relative z-10">
+<div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 mb-8">
+<span class="relative flex h-2 w-2">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+</span>
+<span class="text-xs font-bold tracking-widest uppercase text-primary">V2.0 Engine Live</span>
+</div>
+<h1 class="text-5xl md:text-7xl font-black tracking-tighter mb-6 bg-clip-text text-transparent bg-gradient-to-b from-white to-white/60">Advanced Code <br/><span class="bg-clip-text text-transparent bg-gradient-to-r from-brand-purple to-brand-blue">Intelligence</span></h1>
+<p class="text-lg md:text-xl max-w-2xl mx-auto mb-12 font-light leading-relaxed text-slate-300">
+                Understand your codebase with our ultra-modern analysis engine. Deep scanning, real-time metrics, and actionable health insights.
+            </p>
+<div class="flex flex-col sm:flex-row gap-4 justify-center">
+<a href="{% if session.get('user_id') %}{{ url_for('dashboard') }}{% else %}{{ url_for('login') }}{% endif %}">
+<button class="bg-gradient-to-r from-brand-purple to-brand-blue text-white px-8 py-4 rounded-xl font-bold flex items-center justify-center gap-2 group transition-transform hover:scale-105 shadow-lg shadow-indigo-500/30">
+                    Start Analyzing <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
+</button>
+</a>
+</div>
+</div>
+<div class="absolute bottom-0 left-0 w-full h-24 bg-gradient-to-t from-background-light dark:from-background-dark to-transparent"></div>
+</section>
+<main class="max-w-7xl mx-auto px-6 mt-20 relative z-20 space-y-24 pb-32">
+<!-- Analysis Parameters -->
+<section id="parameters">
+<div class="flex items-end justify-between mb-10">
+<div>
+<h2 class="text-3xl font-black mb-2 text-white">Analysis Parameters</h2>
+<p class="text-slate-500 dark:text-slate-400">Core dimensions of our deep-scan technology</p>
+</div>
+<div class="h-px bg-primary/20 flex-1 mx-8 mb-4 hidden md:block"></div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+<!-- Syntax Errors -->
+<div class="glass-card p-8 rounded-2xl group hover:border-primary/50 transition-all duration-500">
+    <div class="w-14 h-14 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform bg-brand-purple/20">
+        <span class="material-symbols-outlined text-3xl text-brand-purple">report_problem</span>
+    </div>
+    <h3 class="text-xl font-bold mb-3">Syntax Errors</h3>
+    <p class="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">We check for Python syntax errors that prevent code execution. Invalid syntax is identified using Python’s AST parser.</p>
+    <div class="mt-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-md">
+        <p class="text-sm text-red-700 font-semibold">Example: Missing colons, incorrect indentation, undefined variables</p>
+    </div>
+</div>
+<!-- Code Style (PEP 8) -->
+<div class="glass-card p-8 rounded-2xl group hover:border-primary/50 transition-all duration-500">
+    <div class="w-14 h-14 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform bg-brand-purple/20">
+        <span class="material-symbols-outlined text-3xl text-brand-purple">palette</span>
+    </div>
+    <h3 class="text-xl font-bold mb-3">Code Style (PEP 8)</h3>
+    <p class="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">Evaluates adherence to PEP 8 Python style guidelines using Pylint. This includes naming conventions, spacing, and formatting standards.</p>
+    <div class="mt-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-md">
+        <p class="text-sm text-red-700 font-semibold">Example: Variable naming (snake_case), line length, whitespace consistency</p>
+    </div>
+</div>
+<!-- Cyclomatic Complexity -->
+<div class="glass-card p-8 rounded-2xl group hover:border-primary/50 transition-all duration-500">
+    <div class="w-14 h-14 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform bg-brand-purple/20">
+        <span class="material-symbols-outlined text-3xl text-brand-purple">settings</span>
+    </div>
+    <h3 class="text-xl font-bold mb-3">Cyclomatic Complexity</h3>
+    <p class="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">Measures code complexity by counting decision points (if, loops, etc.). Lower complexity means code is easier to understand and test.</p>
+    <div class="mt-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-md">
+        <p class="text-sm text-red-700 font-semibold">Range: 1 (simple) to 10+ (complex) | Ideal: ≤ 3</p>
+    </div>
+</div>
+<!-- Maintainability Index -->
+<div class="glass-card p-8 rounded-2xl group hover:border-primary/50 transition-all duration-500">
+    <div class="w-14 h-14 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform bg-brand-purple/20">
+        <span class="material-symbols-outlined text-3xl text-brand-purple">health_and_safety</span>
+    </div>
+    <h3 class="text-xl font-bold mb-3">Maintainability Index</h3>
+    <p class="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">Calculated using lines of code, cyclomatic complexity, and Halstead metrics. Shows how easy it is to maintain and update the code.</p>
+    <div class="mt-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-md">
+        <p class="text-sm text-red-700 font-semibold">Range: 0-100 | 85+ (Excellent), 50-85 (Good), &lt;50 (Poor)</p>
+    </div>
+</div>
+</div>
+</section>
+<!-- Scoring System -->
+<section class="glass-card rounded-[2.5rem] p-12">
+<div class="text-center mb-16">
+<h2 class="text-4xl font-black mb-4 text-white">Scoring System Breakdown</h2>
+<p class="max-w-xl mx-auto text-slate-300">Standardized metrics to communicate code quality across engineering and management teams.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+    <div class="p-6 rounded-2xl border border-emerald-400/40 bg-white/5 text-center">
+        <div class="text-4xl font-black text-emerald-200 mb-2">90-100</div>
+        <div class="text-sm font-bold text-emerald-200 mb-1">Excellent</div>
+        <div class="text-xs text-slate-300">Production ready</div>
+    </div>
+    <div class="p-6 rounded-2xl border border-sky-400/40 bg-white/5 text-center">
+        <div class="text-4xl font-black text-sky-200 mb-2">75-89</div>
+        <div class="text-sm font-bold text-sky-200 mb-1">Good</div>
+        <div class="text-xs text-slate-300">Minor improvements</div>
+    </div>
+    <div class="p-6 rounded-2xl border border-amber-400/40 bg-white/5 text-center">
+        <div class="text-4xl font-black text-amber-200 mb-2">50-74</div>
+        <div class="text-sm font-bold text-amber-200 mb-1">Average</div>
+        <div class="text-xs text-slate-300">Needs work</div>
+    </div>
+    <div class="p-6 rounded-2xl border border-rose-400/40 bg-white/5 text-center">
+        <div class="text-4xl font-black text-rose-200 mb-2">&lt;50</div>
+        <div class="text-sm font-bold text-rose-200 mb-1">Poor</div>
+        <div class="text-xs text-slate-300">Major refactoring</div>
+    </div>
+</div>
+</section>
+<!-- Scoring System Details -->
+<section class="glass-card rounded-[2.5rem] p-12">
+    <div class="text-center mb-12">
+        <h2 class="text-4xl font-black mb-3 text-white">Scoring System (0-100)</h2>
+        <p class="max-w-2xl mx-auto text-slate-300">Your overall score is calculated by combining three weighted metrics. Each metric is scored independently and then summed to produce the final score.</p>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
+        <div class="glass-card p-8 rounded-2xl bg-white/5 border border-white/10">
+            <h3 class="text-xl font-bold text-white mb-4">Metric weights</h3>
+            <ul class="space-y-4 text-slate-300">
+                <li><span class="font-semibold text-white">Style Score (PEP 8 Compliance)</span> — <span class="text-primary">40 pts</span><br><span class="text-sm">Each style issue deducts points; perfect PEP 8 gives the full 40 points.</span></li>
+                <li><span class="font-semibold text-white">Complexity Score (Cyclomatic)</span> — <span class="text-primary">30 pts</span><br><span class="text-sm">Lower complexity scores best; high complexity reduces the score.</span></li>
+                <li><span class="font-semibold text-white">Maintainability Score</span> — <span class="text-primary">30 pts</span><br><span class="text-sm">Higher maintainability index yields higher points.</span></li>
+            </ul>
+        </div>
+        <div class="glass-card p-8 rounded-2xl bg-white/5 border border-white/10">
+            <h3 class="text-xl font-bold text-white mb-4">Scoring table</h3>
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-left text-sm text-slate-300">
+                    <thead>
+                        <tr class="text-xs uppercase tracking-widest text-slate-400">
+                            <th class="px-4 py-3">Metric</th>
+                            <th class="px-4 py-3">Excellent</th>
+                            <th class="px-4 py-3">Good</th>
+                            <th class="px-4 py-3">Average</th>
+                            <th class="px-4 py-3">Poor</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="border-t border-white/10">
+                            <td class="px-4 py-4">Style Issues</td>
+                            <td class="px-4 py-4">0 issues = 40 pts</td>
+                            <td class="px-4 py-4">1-3 issues = 30 pts</td>
+                            <td class="px-4 py-4">4-6 issues = 20 pts</td>
+                            <td class="px-4 py-4">7+ issues = 10 pts</td>
+                        </tr>
+                        <tr class="border-t border-white/10">
+                            <td class="px-4 py-4">Complexity (CC)</td>
+                            <td class="px-4 py-4">≤ 2 = 30 pts</td>
+                            <td class="px-4 py-4">2-4 = 25 pts</td>
+                            <td class="px-4 py-4">4-7 = 20 pts</td>
+                            <td class="px-4 py-4">> 10 = 0 pts</td>
+                        </tr>
+                        <tr class="border-t border-white/10">
+                            <td class="px-4 py-4">Maintainability Index</td>
+                            <td class="px-4 py-4">≥ 85 = 30 pts</td>
+                            <td class="px-4 py-4">70-85 = 25 pts</td>
+                            <td class="px-4 py-4">50-70 = 20 pts</td>
+                            <td class="px-4 py-4">< 25 = 0 pts</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</section>
+<!-- Analysis Tools -->
+<section id="tools">
+<div class="flex items-center gap-4 mb-12">
+<h2 class="text-3xl font-black shrink-0 text-white">Analysis Tools</h2>
+<div class="h-px bg-slate-200 dark:bg-slate-800 flex-1"></div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+    <div class="glass-card p-8 rounded-2xl hover:ring-2 ring-primary/30 transition-all">
+        <div class="w-14 h-14 rounded-xl flex items-center justify-center mb-6 bg-brand-purple/20">
+            <span class="material-symbols-outlined text-3xl text-brand-purple">school</span>
+        </div>
+        <h3 class="text-xl font-bold mb-3">Python AST</h3>
+        <p class="text-slate-500 text-sm">Parses Python code into an Abstract Syntax Tree to detect syntax errors and analyze code structure.</p>
+    </div>
+    <div class="glass-card p-8 rounded-2xl hover:ring-2 ring-primary/30 transition-all">
+        <div class="w-14 h-14 rounded-xl flex items-center justify-center mb-6 bg-brand-purple/20">
+            <span class="material-symbols-outlined text-3xl text-brand-purple">rule</span>
+        </div>
+        <h3 class="text-xl font-bold mb-3">Pylint</h3>
+        <p class="text-slate-500 text-sm">Code analysis tool that checks for PEP 8 style violations and potential programming errors.</p>
+    </div>
+    <div class="glass-card p-8 rounded-2xl hover:ring-2 ring-primary/30 transition-all">
+        <div class="w-14 h-14 rounded-xl flex items-center justify-center mb-6 bg-brand-purple/20">
+            <span class="material-symbols-outlined text-3xl text-brand-purple">analytics</span>
+        </div>
+        <h3 class="text-xl font-bold mb-3">Radon</h3>
+        <p class="text-slate-500 text-sm">Measures cyclomatic complexity and maintainability index of Python code.</p>
+    </div>
+</div>
+</section>
+<!-- FAQ -->
+<section id="faq" class="max-w-4xl mx-auto">
+<h2 class="text-3xl font-black mb-12 text-center text-white">Frequently Asked Questions</h2>
+<div class="space-y-4">
+<div class="glass-card rounded-2xl overflow-hidden">
+<details class="group p-6 cursor-pointer" open="">
+<summary class="flex items-center justify-between font-bold text-lg list-none">
+                            How often is the codebase analyzed?
+                            <span class="material-symbols-outlined group-open:rotate-180 transition-transform">expand_more</span>
+</summary>
+<div class="mt-4 text-slate-500 leading-relaxed border-t border-primary/10 pt-4">
+                            CodeInsight offers real-time analysis as you type in your IDE, as well as deep-scan triggers on every pull request or merge to main branches.
+                        </div>
+</details>
+</div>
+<div class="glass-card rounded-2xl overflow-hidden">
+<details class="group p-6 cursor-pointer">
+<summary class="flex items-center justify-between font-bold text-lg list-none">
+                            Which programming languages are supported?
+                            <span class="material-symbols-outlined group-open:rotate-180 transition-transform">expand_more</span>
+</summary>
+<div class="mt-4 text-slate-500 leading-relaxed border-t border-primary/10 pt-4">
+                            We support over 25 languages including JavaScript, Python, Java, C++, Go, and Rust. New language definitions are added every quarter.
+                        </div>
+</details>
+</div>
+<div class="glass-card rounded-2xl overflow-hidden">
+<details class="group p-6 cursor-pointer">
+<summary class="flex items-center justify-between font-bold text-lg list-none">
+                            Can we integrate with our existing CI/CD?
+                            <span class="material-symbols-outlined group-open:rotate-180 transition-transform">expand_more</span>
+</summary>
+<div class="mt-4 text-slate-500 leading-relaxed border-t border-primary/10 pt-4">
+                            Yes, CodeInsight has first-class integrations for GitHub Actions, GitLab CI, Jenkins, and Azure DevOps.
+                        </div>
+</details>
+</div>
+</div>
+</section>
+<!-- CTA -->
+<section class="relative overflow-hidden rounded-[3rem] bg-gradient-to-br from-brand-purple to-brand-blue px-10 py-20 text-center text-white shadow-2xl">
+<div class="absolute inset-0 opacity-20 pointer-events-none">
+<div class="absolute -top-24 -left-24 w-96 h-96 bg-white rounded-full blur-[100px]"></div>
+<div class="absolute -bottom-24 -right-24 w-96 h-96 bg-white rounded-full blur-[100px]"></div>
+</div>
+<div class="relative z-10">
+<h2 class="text-4xl md:text-5xl font-black mb-6 text-white">Ready to improve your code?</h2>
+<p class="text-white/80 max-w-xl mx-auto mb-10 text-lg">Join thousands of engineering teams using CodeInsight to ship faster and more secure software.</p>
+<div class="flex flex-col sm:flex-row gap-4 justify-center">
+<a href="{% if session.get('user_id') %}{{ url_for('dashboard') }}{% else %}{{ url_for('login') }}{% endif %}">
+<button class="bg-white text-primary px-10 py-4 rounded-xl font-bold text-lg shadow-xl hover:scale-105 transition-transform">Get Started Free</button>
+</a>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="border-t border-white/10 py-12 bg-black/20 backdrop-blur-sm">
+<div class="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-8">
+<div class="flex items-center gap-2 opacity-60 grayscale hover:grayscale-0 transition-all text-brand-purple">
+<span class="material-symbols-outlined font-bold">terminal</span>
+<span class="font-black uppercase tracking-widest text-sm">CodeInsight</span>
+</div>
+<div class="flex gap-10 text-sm text-slate-400 font-medium">
+<a class="hover:text-primary transition-colors" href="#">Privacy Policy</a>
+<a class="hover:text-primary transition-colors" href="#">Terms of Service</a>
+<a class="hover:text-primary transition-colors" href="#">Contact Support</a>
+</div>
+<div class="text-slate-400 text-sm">
+                © 2024 CodeInsight. All rights reserved.
+            </div>
+</div>
+</footer>
+</body></html>

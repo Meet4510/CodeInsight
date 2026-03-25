@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Login | CodeInsight</title>
+<!-- Tailwind CSS v3 CDN -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Google Fonts: Inter -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<style data-purpose="custom-config">
+    :root {
+      --brand-indigo: #6366f1;
+      --brand-violet: #8b5cf6;
+      --brand-blue: #3b82f6;
+    }
+    body {
+      font-family: 'Inter', sans-serif;
+      margin: 0;
+      overflow: hidden; /* Prevent scrollbars during background animation */
+    }
+  </style>
+<style data-purpose="animated-background">
+    /* Animated mesh gradient background */
+    .bg-mesh {
+      background-color: #020617;
+      background-image: 
+        radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), 
+        radial-gradient(at 50% 0%, hsla(225,39%,30%,1) 0, transparent 50%), 
+        radial-gradient(at 100% 0%, hsla(339,49%,30%,1) 0, transparent 50%), 
+        radial-gradient(at 0% 100%, hsla(225,39%,30%,1) 0, transparent 50%), 
+        radial-gradient(at 100% 100%, hsla(253,16%,7%,1) 0, transparent 50%);
+      background-size: 200% 200%;
+      animation: meshGradient 15s ease infinite;
+      height: 100vh;
+      width: 100vw;
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: -1;
+    }
+
+    @keyframes meshGradient {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+  </style>
+<style data-purpose="glassmorphism-and-animations">
+    /* Glassmorphism card effect */
+    .glass-card {
+      background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
+    }
+
+    /* Entrance Animations */
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .animate-fade-up {
+      animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    .delay-1 { animation-delay: 0.1s; opacity: 0; }
+    .delay-2 { animation-delay: 0.2s; opacity: 0; }
+    .delay-3 { animation-delay: 0.3s; opacity: 0; }
+
+    /* Input focus glow */
+    .input-glow:focus {
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.4);
+      border-color: rgba(99, 102, 241, 0.5);
+    }
+
+    /* Logo pulse effect */
+    .logo-pulse {
+      animation: pulseGlow 3s ease-in-out infinite;
+    }
+
+    @keyframes pulseGlow {
+      0%, 100% { filter: drop-shadow(0 0 5px rgba(139, 92, 246, 0.4)); }
+      50% { filter: drop-shadow(0 0 15px rgba(139, 92, 246, 0.8)); }
+    }
+  </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4 text-slate-200">
+<!-- BEGIN: Animated Background Container -->
+<div aria-hidden="true" class="bg-mesh"></div>
+<!-- END: Animated Background Container -->
+<!-- BEGIN: Main Login Content -->
+<main class="w-full max-w-[450px] z-10">
+<!-- BEGIN: Header Section -->
+<header class="text-center mb-8 animate-fade-up delay-1">
+<div class="inline-block mb-4 logo-pulse">
+<div class="bg-gradient-to-br from-indigo-500 to-violet-600 p-3 rounded-2xl shadow-lg">
+<svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+</div>
+<h1 class="text-4xl font-bold tracking-tight text-white mb-2">CodeInsight</h1>
+<p class="text-slate-400 font-medium">Analyze your Python code quality</p>
+</header>
+<!-- END: Header Section -->
+<!-- BEGIN: Login Card -->
+<section class="glass-card rounded-3xl p-8 md:p-10 animate-fade-up delay-2">
+{% if error %}
+<div class="mb-6 rounded-lg bg-red-600/20 border border-red-500 text-red-100 p-4">
+    {{ error }}
+</div>
+{% endif %}
+<form action="{{ url_for('login') }}" class="space-y-6" method="POST">
+<!-- Email Input Group -->
+<div class="space-y-2">
+<label class="block text-sm font-semibold text-slate-300 ml-1" for="email">Email Address</label>
+<input class="w-full px-4 py-3 bg-slate-900/50 border border-slate-700/50 rounded-xl text-white placeholder-slate-500 transition-all duration-200 input-glow" id="email" name="email" placeholder="dev@codeinsight.ai" required="" type="email"/>
+</div>
+<!-- Password Input Group -->
+<div class="space-y-2">
+<div class="flex justify-between items-center ml-1">
+<label class="block text-sm font-semibold text-slate-300" for="password">Password</label>
+<a class="text-xs font-medium text-indigo-400 hover:text-indigo-300 transition-colors" href="#">Forgot?</a>
+</div>
+<input class="w-full px-4 py-3 bg-slate-900/50 border border-slate-700/50 rounded-xl text-white placeholder-slate-500 transition-all duration-200 input-glow" id="password" name="password" placeholder="••••••••" required="" type="password"/>
+</div>
+<!-- Submit Button -->
+<button class="w-full py-3.5 px-4 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-bold rounded-xl shadow-lg shadow-indigo-500/20 transform transition-all active:scale-[0.98] hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-900" type="submit">
+          Login
+        </button>
+</form>
+<!-- Registration Divider -->
+<div class="relative my-8">
+<div aria-hidden="true" class="absolute inset-0 flex items-center">
+<div class="w-full border-t border-slate-700/50"></div>
+</div>
+<div class="relative flex justify-center text-sm">
+<span class="px-4 bg-transparent text-slate-500">or continue with</span>
+</div>
+</div>
+<!-- Footer Links -->
+<div class="text-center">
+<p class="text-sm text-slate-400">
+          Don't have an account? 
+          <a class="font-bold text-indigo-400 hover:text-indigo-300 transition-colors underline-offset-4 hover:underline" href="{{ url_for('register') }}">Register here</a>
+</p>
+</div>
+</section>
+<!-- END: Login Card -->
+<!-- BEGIN: Copyright Footer -->
+<footer class="mt-8 text-center animate-fade-up delay-3">
+<p class="text-xs tracking-widest text-slate-500 uppercase">
+        © 2023 CodeInsight Analysis Tool
+      </p>
+</footer>
+<!-- END: Copyright Footer -->
+</main>
+<!-- END: Main Login Content -->
+</body></html>
