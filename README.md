@@ -236,25 +236,23 @@ The application will start on `http://localhost:5000`
 
 ## Scoring System
 
-### Style Score (0-40 points)
+### Style Score (0-60 points)
 - Based on number of style issues found
 - PEP 8 compliance
 
-### Complexity Score (0-30 points)
+### Complexity Score (0-20 points)
 ```
-≤ 2   : 30 points
-≤ 4   : 25 points
-≤ 7   : 20 points
-≤ 10  : 10 points
+≤ 2   : 20 points
+≤ 4   : 15 points
+≤ 8   : 10 points
 > 10  : 0 points
 ```
 
-### Maintainability Score (0-30 points)
+### Maintainability Score (0-20 points)
 ```
-≥ 85  : 30 points
-≥ 70  : 25 points
-≥ 50  : 20 points
-≥ 25  : 10 points
+≥ 85  : 20 points
+≥ 70  : 15 points
+≥ 50  : 10 points
 < 25  : 0 points
 ```
 
@@ -272,6 +270,8 @@ The application will start on `http://localhost:5000`
 - password (VARCHAR, Hashed)
 - created_at (TIMESTAMP)
 - updated_at (TIMESTAMP)
+- plan (VARCHAR)
+- bio (Text)
 ```
 
 ### uploaded_files table
