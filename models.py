@@ -94,7 +94,7 @@ class Database:
         
         cursor = conn.cursor()
         try:
-            cursor.execute("SELECT id, name, email, password, plan, bio, theme FROM users WHERE email = %s", (email,))
+            cursor.execute("SELECT id, name, email, password, plan, bio FROM users WHERE email = %s", (email,))
             result = cursor.fetchone()
             return result
         finally:
