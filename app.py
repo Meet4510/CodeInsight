@@ -926,7 +926,10 @@ def check_database():
 @app.route('/about')
 def about():
     """About and Learn section"""
-    return render_template('about.html')
+    user = None
+    if 'user_id' in session and db:
+        user = db.get_user_by_id(session['user_id'])
+    return render_template('about.html', user=user)
 
 @app.route('/settings', methods=['GET','POST'])
 @login_required
@@ -939,6 +942,10 @@ def settings():
     user = db.get_user_by_id(user_id)
     error = None
     success = None
+
+    AVATAR_FOLDER = os.path.join('static', 'avatars')
+    os.makedirs(AVATAR_FOLDER, exist_ok=True)
+    ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 
     if request.method == 'POST':
         data = request.form.to_dict()
@@ -955,12 +962,44 @@ def settings():
         elif password and len(password) < 6:
             error = 'Password must be at least 6 characters.'
         else:
-            updated = db.update_user(user_id, name, email, password if password else None, bio=bio)
-            if updated:
-                success = 'Profile updated successfully.'
-                user = db.get_user_by_id(user_id)  # refresh user object
-            else:
-                error = 'Failed to update profile. Email may already be in use.'
+            # Handle avatar upload
+            avatar_filename = None
+            avatar_file = request.files.get('avatar')
+            if avatar_file and avatar_file.filename:
+                ext = avatar_file.filename.rsplit('.', 1)[-1].lower()
+                if ext not in ALLOWED_IMAGE_EXTENSIONS:
+                    error = 'Invalid image format. Allowed: PNG, JPG, JPEG, GIF, WEBP.'
+                else:
+                    avatar_filename = f"avatar_{user_id}.{ext}"
+                    avatar_file.save(os.path.join(AVATAR_FOLDER, avatar_filename))
+
+            if not error:
+                # Handle removal first
+                if data.get('remove_avatar') == '1':
+                    # Delete the old file from disk
+                    if user and user[5]:
+                        old_path = os.path.join(AVATAR_FOLDER, user[5])
+                        if os.path.exists(old_path):
+                            os.remove(old_path)
+                    avatar_filename = ''  # empty string clears the DB column
+                    updated = db.update_user(
+                        user_id, name, email,
+                        password if password else None,
+                        bio=bio,
+                        avatar=avatar_filename
+                    )
+                else:
+                    updated = db.update_user(
+                        user_id, name, email,
+                        password if password else None,
+                        bio=bio,
+                        avatar=avatar_filename
+                    )
+                if updated:
+                    success = 'Profile updated successfully.'
+                    user = db.get_user_by_id(user_id)
+                else:
+                    error = 'Failed to update profile. Email may already be in use.'
 
     return render_template('settings.html', user=user, error=error, success=success)
 
@@ -985,6 +1024,3 @@ if __name__ == '__main__':
     print("="*60)
     print()
     app.run(debug=True, host='localhost', port=5000)
-
-
-

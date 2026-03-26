@@ -47,7 +47,7 @@ class Database:
             cursor.close()
             conn.close()
 
-    def update_user(self, user_id, name, email, password=None, bio=None):
+    def update_user(self, user_id, name, email, password=None, bio=None, avatar=None):
         """Update user profile details"""
         conn = self.get_connection()
         if not conn:
@@ -55,29 +55,23 @@ class Database:
 
         cursor = conn.cursor()
         try:
-            if password and bio is not None:
-                hashed_password = generate_password_hash(password)
-                cursor.execute(
-                    "UPDATE users SET name=%s, email=%s, password=%s, bio=%s WHERE id=%s",
-                    (name, email, hashed_password, bio, user_id)
-                )
-            elif password:
-                hashed_password = generate_password_hash(password)
-                cursor.execute(
-                    "UPDATE users SET name=%s, email=%s, password=%s WHERE id=%s",
-                    (name, email, hashed_password, user_id)
-                )
-            elif bio is not None:
-                cursor.execute(
-                    "UPDATE users SET name=%s, email=%s, bio=%s WHERE id=%s",
-                    (name, email, bio, user_id)
-                )
-            else:
-                cursor.execute(
-                    "UPDATE users SET name=%s, email=%s WHERE id=%s",
-                    (name, email, user_id)
-                )
+            # Build SET clause dynamically
+            fields = ["name=%s", "email=%s"]
+            values = [name, email]
 
+            if password:
+                fields.append("password=%s")
+                values.append(generate_password_hash(password))
+            if bio is not None:
+                fields.append("bio=%s")
+                values.append(bio)
+            if avatar is not None:
+                fields.append("avatar=%s")
+                values.append(avatar if avatar != '' else None)
+
+            values.append(user_id)
+            sql = "UPDATE users SET " + ", ".join(fields) + " WHERE id=%s"
+            cursor.execute(sql, tuple(values))
             conn.commit()
             return cursor.rowcount > 0
         except MySQLdb.IntegrityError:
@@ -109,7 +103,7 @@ class Database:
         
         cursor = conn.cursor()
         try:
-            cursor.execute("SELECT id, name, email, plan, bio FROM users WHERE id = %s", (user_id,))
+            cursor.execute("SELECT id, name, email, plan, bio, avatar FROM users WHERE id = %s", (user_id,))
             result = cursor.fetchone()
             return result
         finally:
@@ -237,4 +231,3 @@ class Database:
         finally:
             cursor.close()
             conn.close()
-

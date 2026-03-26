@@ -49,3 +49,4 @@ CREATE TABLE IF NOT EXISTS analysis_results (
 INSERT INTO users (name, email, password) VALUES 
 ('Demo User', 'demo@example.com', 'pbkdf2:sha256:600000$...$...');
 
+ALTER TABLE users ADD COLUMN avatar VARCHAR(255) DEFAULT 'default.png';

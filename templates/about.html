@@ -92,10 +92,11 @@
 </div>
 <div class="flex items-center gap-3">
 <button class="bg-white/10 hover:bg-white/20 border border-white/10 text-white px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2">
-<span>Meet Lathidadiya</span>
+<span>{{ user[1] if user else 'Guest' }}</span>
 </button>
 <div class="w-10 h-10 rounded-full border border-white/20 overflow-hidden bg-white/5">
-<img alt="Avatar" class="w-full h-full object-cover shadow-inner" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCdQAKOba67NAwSIO96fb60ppC7RKX_RyECrCQLI-aSzy5V1-aN3Cl3yVB84nKqnm1IMUisCAPAbQ0cy2hSfK3hmT5rdfkpIBX5I_gVv1kAn-u4fixMQvMuBPv6hSEaMRYQppP7XxugzaaQ6EmEG31pe-xZ4xbO0ewAoQv28qiH1ckWPt1Od8I42FXWj3n1OEe4s430tny53eOgbFgstNsjNla4B44Hs86oHPsQ8tlen4KFSQbtkCOS3B1Wt6hDOjSy6lP8QfzH"/>
+<img alt="Avatar" class="w-full h-full object-cover shadow-inner"
+     src="{% if user and user|length > 5 and user[5] %}{{ url_for('static', filename='avatars/' + user[5]) }}{% else %}https://lh3.googleusercontent.com/aida-public/AB6AXuAgnj3vmVRcKxe6WHbn9pzTuBquqsH-YaIKiAwvjk4SJGH8JZ75pGEBc9tMaAjWmP1xJCEO7CsUU9GPkNlgl1-d6eroypPByv8acN8GFywPyFhsEd1-NAtUEwGlgtKmPVDQ6pZWUAp3UmRxccAEivVLDcoSBkl2GcZePVWMvlFyGjyTknLGY9aaCeaSuXBTBtClW58ix_bNW33TEx_SlciuV3NH12LB1JUAue_JVaQzdN-rGq4oosBcoJ_UoghmJHChFaZK8Sjv{% endif %}"/>
 </div>
 </div>
 </header>
