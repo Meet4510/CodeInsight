@@ -214,33 +214,6 @@
 <span class="text-[9px] font-bold">Settings</span>
 </a>
 </nav>
-<script>
-const PLACEHOLDER = "https://lh3.googleusercontent.com/aida-public/AB6AXuAgnj3vmVRcKxe6WHbn9pzTuBquqsH-YaIKiAwvjk4SJGH8JZ75pGEBc9tMaAjWmP1xJCEO7CsUU9GPkNlgl1-d6eroypPByv8acN8GFywPyFhsEd1-NAtUEwGlgtKmPVDQ6pZWUAp3UmRxccAEivVLDcoSBkl2GcZePVWMvlFyGjyTknLGY9aaCeaSuXBTBtClW58ix_bNW33TEx_SlciuV3NH12LB1JUAue_JVaQzdN-rGq4oosBcoJ_UoghmJHChFaZK8Sjv";
 
-function previewAvatar(input) {
-    if (input.files && input.files[0]) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            document.getElementById('avatar-preview').src = e.target.result;
-        };
-        reader.readAsDataURL(input.files[0]);
-        // Cancel any pending removal if a new file is chosen
-        document.getElementById('remove-avatar-flag').value = '0';
-        const btn = document.getElementById('remove-avatar-btn');
-        if (btn) btn.classList.remove('hidden');
-    }
-}
-
-function removeAvatar() {
-    // Set removal flag
-    document.getElementById('remove-avatar-flag').value = '1';
-    // Reset preview to placeholder
-    document.getElementById('avatar-preview').src = PLACEHOLDER;
-    // Clear the file input
-    document.getElementById('avatar-input').value = '';
-    // Hide the remove button
-    const btn = document.getElementById('remove-avatar-btn');
-    if (btn) btn.classList.add('hidden');
-}
-</script>
+<script src="{{ url_for('static', filename='js/script.js') }}"></script>
 </body></html>

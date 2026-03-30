@@ -231,17 +231,5 @@
   </div>
 </div>
 
-<script>
-function confirmDelete(fileId, filename) {
-    document.getElementById('modal-filename').textContent = filename;
-    document.getElementById('delete-form').action = '/delete/' + fileId;
-    document.getElementById('delete-modal').classList.remove('hidden');
-}
-function closeModal() {
-    document.getElementById('delete-modal').classList.add('hidden');
-}
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') closeModal();
-});
-</script>
+<script src="{{ url_for('static', filename='js/script.js') }}"></script>
 </body></html>

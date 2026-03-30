@@ -603,6 +603,7 @@ def analyze(file_id):
     
     try:
         user_id = session.get('user_id')
+        user = db.get_user_by_id(user_id)
         file_info = db.get_file_by_id(file_id)
         
         if not file_info or file_info[1] != user_id:
@@ -631,7 +632,8 @@ def analyze(file_id):
                                  error=f'Analysis failed: {str(e)}',
                                  file_id=file_id,
                                  filename=file_info[2],
-                                 performance="N/A")
+                                 performance="N/A",
+                                 user=user)
 
         # Save results to database
         try:
@@ -669,12 +671,14 @@ def analyze(file_id):
                              categorized_issues=categorized_issues,
                              suggestions=suggestions,
                              scores=scores,
-                             performance="Optimized" if analysis['complexity'] <= 5 else "Needs Optimization"))
+                             performance="Optimized" if analysis['complexity'] <= 5 else "Needs Optimization",
+                             user=user))
         response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
         response.headers['Pragma'] = 'no-cache'
         response.headers['Expires'] = '0'
         return response
     except Exception as e:
+        user = db.get_user_by_id(session.get('user_id')) if db else None
         return render_template('results.html',
                              file_id=file_id,
                              filename="Error",
@@ -693,7 +697,8 @@ def analyze(file_id):
                                  'complexity_pct': 0,
                                  'maintainability_pct': 0,
                                  'total_score': 0
-                             })
+                             },
+                             user=user)
 
 @app.route('/delete/<int:file_id>', methods=['POST'])
 @login_required
@@ -733,6 +738,7 @@ def view_results(file_id):
         if not file_info or file_info[1] != user_id:
             return jsonify({'error': 'Unauthorized'}), 403
         
+        user = db.get_user_by_id(user_id)
         analysis_result = db.get_analysis_result(file_id)
         
         if not analysis_result:
@@ -801,7 +807,8 @@ def view_results(file_id):
                              issues=issues,
                              categorized_issues=categorized_issues,
                              suggestions=suggestions,
-                             scores=scores)
+                             scores=scores,
+                             user=user)
         
         return render_template('results.html',
                              file_id=file_id,

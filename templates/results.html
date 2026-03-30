@@ -69,10 +69,14 @@
 </div>
 <div class="flex items-center gap-3">
 <button class="bg-white/10 hover:bg-white/20 border border-white/10 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-2">
-<span>Meet Lathidadiya</span>
+<span>{{ user[1] if user else 'User' }}</span>
 </button>
 <div class="w-10 h-10 rounded-full border border-white/20 overflow-hidden bg-white/5">
-<img alt="Avatar" class="w-full h-full object-cover shadow-inner" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCdQAKOba67NAwSIO96fb60ppC7RKX_RyECrCQLI-aSzy5V1-aN3Cl3yVB84nKqnm1IMUisCAPAbQ0cy2hSfK3hmT5rdfkpIBX5I_gVv1kAn-u4fixMQvMuBPv6hSEaMRYQppP7XxugzaaQ6EmEG31pe-xZ4xbO0ewAoQv28qiH1ckWPt1Od8I42FXWj3n1OEe4s430tny53eOgbFgstNsjNla4B44Hs86oHPsQ8tlen4KFSQbtkCOS3B1Wt6hDOjSy6lP8QfzH"/>
+    {% if user and user|length > 5 and user[5] %}
+    <img alt="Avatar" class="w-full h-full object-cover shadow-inner" src="{{ url_for('static', filename='avatars/' + user[5]) }}" />
+    {% else %}
+    <div class="w-full h-full flex items-center justify-center bg-gradient-to-r from-primary to-secondary text-white font-bold">{{ user[1][0] if user else 'U' }}</div>
+    {% endif %}
 </div>
 </div>
 </div>
@@ -266,23 +270,6 @@
 <a class="text-xs font-bold text-slate-500 hover:text-white uppercase tracking-widest transition-colors" href="#">Support</a>
 </div>
 </div>
-<script>
-// Enable issue rows to show details on click.
-// Clicking will show a simple modal-like alert and copy text to clipboard.
-document.addEventListener('DOMContentLoaded', () => {
-  document.querySelectorAll('.issue-row').forEach(el => {
-    el.addEventListener('click', () => {
-      const issue = el.dataset.issue;
-      if (!issue) return;
-      try {
-        navigator.clipboard.writeText(issue);
-      } catch (e) {
-        // ignore if clipboard unavailable
-      }
-      alert('Issue details copied to clipboard:\n\n' + issue);
-    });
-  });
-});
-</script>
+<script src="{{ url_for('static', filename='js/script.js') }}"></script>
 </footer>
 </body></html>
