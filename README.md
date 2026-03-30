@@ -2,6 +2,40 @@
 
 A simple web application for analyzing Python code quality. This is an MCA minor project that demonstrates code analysis, scoring, and reporting.
 
+##Setup
+
+🔹 1. Create Virtual Environment
+
+Open terminal / PowerShell in your project folder:
+
+python -m venv venv
+
+👉 This creates a folder named venv
+
+🔹 2. Activate Virtual Environment
+▶️ On Windows (PowerShell):
+venv\Scripts\Activate
+
+If error comes (execution policy), run:
+
+Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+▶️ On Windows (CMD):
+venv\Scripts\activate
+▶️ On Mac/Linux:
+source venv/bin/activate
+
+✅ After activation, you will see:
+
+(venv) PS C:\your-project>
+🔹 3. Install requirements.txt
+
+Make sure requirements.txt is in your project folder.
+
+Run:
+
+pip install -r requirements.txt
+
+
 ## Features
 
 ✅ **User Authentication**
