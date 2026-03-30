@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for, make_response
 from models import Database
 import os
 import json
@@ -96,12 +96,15 @@ class CodeAnalyzer:
         """Check for syntax errors using AST"""
         issues = []
         try:
-            with open(filepath, 'r', encoding='utf-8') as f:
+            with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
                 code = f.read()
             ast.parse(code)
             return issues
         except SyntaxError as e:
             issues.append(f"Syntax Error: {e.msg} (Line {e.lineno})")
+            return issues
+        except UnicodeDecodeError:
+            issues.append("File encoding error: Unable to read file as UTF-8")
             return issues
         except Exception as e:
             issues.append(f"Error: {str(e)}")
@@ -116,7 +119,7 @@ class CodeAnalyzer:
                 ['pylint', filepath, '--disable=all', '--enable=syntax-error,basic,unused-import,unused-variable,undefined-variable,missing-docstring,invalid-name,line-too-long,too-many-lines,too-many-branches,too-many-statements,too-many-locals,too-few-public-methods,bad-indentation,superfluous-parens,missing-final-newline,trailing-whitespace,trailing-newlines,wrong-import-position,ungrouped-imports,broad-except,consider-using-with,unnecessary-pass,duplicate-code'],
                 capture_output=True,
                 text=True,
-                timeout=20
+                timeout=60
             )
             
             # Pylint prints issues to stdout/stderr; combine both.
@@ -148,6 +151,8 @@ class CodeAnalyzer:
             issues = [i for i in issues if i and not re.fullmatch(r"^[\-\s=\*]+$", i)]
 
             return issues[:50]  # Limit to 50 issues for strict analysis
+        except subprocess.TimeoutExpired:
+            return ["Pylint analysis timed out - file may be too large or complex"]
         except Exception as e:
             return [f"Pylint check failed: {str(e)}"]
     
@@ -159,7 +164,7 @@ class CodeAnalyzer:
                 ['radon', 'cc', filepath, '-a'],
                 capture_output=True,
                 text=True,
-                timeout=10
+                timeout=30
             )
             
             output = result.stdout
@@ -186,7 +191,7 @@ class CodeAnalyzer:
                 ['radon', 'mi', filepath],
                 capture_output=True,
                 text=True,
-                timeout=10
+                timeout=30
             )
             
             output = result.stdout
@@ -214,7 +219,7 @@ class CodeAnalyzer:
     def get_code_metrics(filepath):
         """Get basic code metrics"""
         try:
-            with open(filepath, 'r', encoding='utf-8') as f:
+            with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
                 code = f.read()
             
             lines = code.split('\n')
@@ -232,8 +237,10 @@ class CodeAnalyzer:
                 'functions': functions,
                 'classes': classes
             }
+        except UnicodeDecodeError:
+            return {'total_lines': 0, 'code_lines': 0, 'functions': 0, 'classes': 0, 'error': 'Encoding error'}
         except Exception as e:
-            return {'total_lines': 0, 'code_lines': 0, 'functions': 0, 'classes': 0}
+            return {'total_lines': 0, 'code_lines': 0, 'functions': 0, 'classes': 0, 'error': str(e)}
     
     @staticmethod
     def analyze(filepath):
@@ -581,8 +588,11 @@ def upload():
                 return jsonify({'error': 'Failed to save file record'}), 400
         except Exception as e:
             return jsonify({'error': f'Upload error: {str(e)}'}), 500
+
+    user_id = session.get('user_id')
+    user = db.get_user_by_id(user_id)
     
-    return render_template('upload.html')
+    return render_template('upload.html',user=user)
 
 @app.route('/analyze/<int:file_id>')
 @login_required
@@ -603,32 +613,48 @@ def analyze(file_id):
         if not os.path.exists(filepath):
             return jsonify({'error': 'File not found'}), 404
         
+        print(f"Analyzing file: {filepath}")
+        
         # Perform analysis
-        analysis = CodeAnalyzer.analyze(filepath)
-        scores = ScoreCalculator.calculate_score(analysis)
-        suggestions = ScoreCalculator.get_suggestions(analysis, scores)
+        try:
+            analysis = CodeAnalyzer.analyze(filepath)
+            print(f"Analysis results: {analysis}")
+            scores = ScoreCalculator.calculate_score(analysis)
+            print(f"Scores: {scores}")
+            suggestions = ScoreCalculator.get_suggestions(analysis, scores)
 
-        issues = analysis['syntax_issues'] + analysis['style_issues']
-        categorized_issues = categorize_issues(issues)
+            issues = analysis['syntax_issues'] + analysis['style_issues']
+            categorized_issues = categorize_issues(issues)
+        except Exception as e:
+            print(f"Analysis error: {e}")
+            return render_template('results.html', 
+                                 error=f'Analysis failed: {str(e)}',
+                                 file_id=file_id,
+                                 filename=file_info[2],
+                                 performance="N/A")
 
         # Save results to database
-        issues_json = json.dumps(issues)
-        suggestions_json = json.dumps(suggestions)
+        try:
+            issues_json = json.dumps(issues)
+            suggestions_json = json.dumps(suggestions)
 
-        db.save_analysis_result(
-            file_id,
-            scores['total_score'],
-            analysis['complexity'],
-            analysis['maintainability'],
-            issues_json,
-            suggestions_json
-        )
+            db.save_analysis_result(
+                file_id,
+                scores['total_score'],
+                analysis['complexity'],
+                analysis['maintainability'],
+                issues_json,
+                suggestions_json
+            )
+        except Exception as e:
+            print(f"Warning: Could not save analysis results to database: {e}")
+            # Continue anyway to show results
 
         trend_percent = max(min(int(scores['total_score'] - 70), 20), -20)
         critical_paths = max(1, int(round(analysis['complexity'] * 1.1)))
 
         analyzed_path = os.path.abspath(filepath)
-        return render_template('results.html',
+        response = make_response(render_template('results.html',
                              file_id=file_id,
                              filename=file_info[2],
                              original_filename=file_info[2],
@@ -642,7 +668,12 @@ def analyze(file_id):
                              issues=issues,
                              categorized_issues=categorized_issues,
                              suggestions=suggestions,
-                             scores=scores)
+                             scores=scores,
+                             performance="Optimized" if analysis['complexity'] <= 5 else "Needs Optimization"))
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
     except Exception as e:
         return render_template('results.html',
                              file_id=file_id,
@@ -663,6 +694,30 @@ def analyze(file_id):
                                  'maintainability_pct': 0,
                                  'total_score': 0
                              })
+
+@app.route('/delete/<int:file_id>', methods=['POST'])
+@login_required
+def delete_file(file_id):
+    """Delete an uploaded file"""
+    if not db:
+        return jsonify({'error': 'Database not available'}), 503
+
+    user_id = session.get('user_id')
+    file_info = db.get_file_by_id(file_id)
+
+    if not file_info or file_info[1] != user_id:
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    # Delete physical file from disk
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], file_info[2])
+    if os.path.exists(filepath):
+        os.remove(filepath)
+
+    # Delete DB record (cascades to analysis_results)
+    db.delete_file(file_id, user_id)
+
+    return redirect(url_for('dashboard'))
+
 
 @app.route('/results/<int:file_id>')
 @login_required
@@ -745,7 +800,6 @@ def view_results(file_id):
                              critical_paths=critical_paths,
                              issues=issues,
                              categorized_issues=categorized_issues,
-                             refresh_message=None,
                              suggestions=suggestions,
                              scores=scores)
         

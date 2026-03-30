@@ -88,7 +88,7 @@ class Database:
         
         cursor = conn.cursor()
         try:
-            cursor.execute("SELECT id, name, email, password, plan, bio FROM users WHERE email = %s", (email,))
+            cursor.execute("SELECT id, name, email, password, plan, bio, avatar FROM users WHERE email = %s", (email,))
             result = cursor.fetchone()
             return result
         finally:
@@ -133,6 +133,24 @@ class Database:
             cursor.close()
             conn.close()
     
+    def delete_file(self, file_id, user_id):
+        """Delete a file record (and cascades to analysis_results via FK)"""
+        conn = self.get_connection()
+        if not conn:
+            return False
+        cursor = conn.cursor()
+        try:
+            # Ensure the file belongs to the user before deleting
+            cursor.execute(
+                "DELETE FROM uploaded_files WHERE id = %s AND user_id = %s",
+                (file_id, user_id)
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+        finally:
+            cursor.close()
+            conn.close()
+
     def get_user_files(self, user_id):
         """Get all files for a user"""
         conn = self.get_connection()

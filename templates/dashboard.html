@@ -92,7 +92,14 @@
 </div>
 <!-- Navigation Links -->
 <div class="flex items-center space-x-4 sm:space-x-8">
+<div class="flex items-center gap-3">
+{% if user and user|length > 5 and user[5] %}
+<img src="{{ url_for('static', filename='avatars/' + user[5]) }}" alt="avatar" class="w-10 h-10 rounded-full border border-white/20"/>
+{% else %}
+<div class="w-10 h-10 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 flex items-center justify-center text-white text-sm font-bold">{{ user[1][0] if user else 'U' }}</div>
+{% endif %}
 <span class="text-sm font-medium text-slate-300">Welcome, <span class="text-white">{{ user[1] if user else 'User' }}</span><span class="ml-2 px-2 py-0.5 bg-brand-purple/20 text-brand-purple text-[10px] font-bold rounded border border-brand-purple/40 uppercase tracking-tighter">{{ user_plan|default('Free') }}</span></span>
+</div>
 <div class="hidden md:flex space-x-6">
 <a class="text-sm font-medium text-slate-300 hover:text-white transition-colors" href="{{ url_for('about') }}">Learn</a>
 <a class="text-sm font-medium text-slate-300 hover:text-white transition-colors" href="{{ url_for('settings') }}">Settings</a>
@@ -154,9 +161,19 @@
             <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-300">{{ file[2] }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-300">Python</td>
             <td class="px-6 py-4 whitespace-nowrap text-right">
+                <div class="flex items-center justify-end gap-2">
                 <a href="{{ url_for('analyze', file_id=file[0]) }}" class="px-4 py-1.5 bg-brand-purple/20 hover:bg-brand-purple/30 text-brand-purple text-xs font-bold rounded-lg border border-brand-purple/30 transition-all uppercase tracking-wide">
                     Analyze
                 </a>
+                <button onclick="confirmDelete({{ file[0] }}, '{{ file[1] }}')"
+                        class="p-1.5 bg-red-500/10 hover:bg-red-500/25 text-red-400 hover:text-red-300 rounded-lg border border-red-500/20 transition-all"
+                        title="Delete file">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                    </svg>
+                </button>
+                </div>
             </td>
         </tr>
     {% endfor %}
@@ -189,4 +206,42 @@
     </p>
 </footer>
 <!-- END: Footer -->
+<!-- Delete Confirmation Modal -->
+<div id="delete-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center px-4">
+  <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closeModal()"></div>
+  <div class="relative glass-card rounded-2xl p-8 max-w-sm w-full shadow-2xl">
+    <div class="flex flex-col items-center text-center gap-4">
+      <div class="w-14 h-14 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center">
+        <svg class="w-7 h-7 text-red-400" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+        </svg>
+      </div>
+      <div>
+        <h3 class="text-lg font-bold text-white mb-1">Delete File?</h3>
+        <p class="text-sm text-slate-400">Are you sure you want to delete <span id="modal-filename" class="text-white font-semibold"></span>? This action cannot be undone.</p>
+      </div>
+      <div class="flex gap-3 w-full mt-2">
+        <button onclick="closeModal()" class="flex-1 py-2.5 rounded-xl border border-white/10 text-slate-400 hover:bg-white/5 text-sm font-semibold transition-all">Cancel</button>
+        <form id="delete-form" method="POST" action="" class="flex-1">
+          <button type="submit" class="w-full py-2.5 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 text-sm font-bold transition-all">Delete</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function confirmDelete(fileId, filename) {
+    document.getElementById('modal-filename').textContent = filename;
+    document.getElementById('delete-form').action = '/delete/' + fileId;
+    document.getElementById('delete-modal').classList.remove('hidden');
+}
+function closeModal() {
+    document.getElementById('delete-modal').classList.add('hidden');
+}
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeModal();
+});
+</script>
 </body></html>

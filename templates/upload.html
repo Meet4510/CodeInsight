@@ -1,192 +1,260 @@
 ﻿<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Upload File - CodeInsight</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background: radial-gradient(circle at top left, #1e1b4b 0%, #0f172a 100%);
+            background-attachment: fixed;
+        }
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.4);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .nav-blur {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 10px;
+        }
+        .custom-upload-area {
+            border: 2px dashed rgba(99, 102, 241, 0.35);
+            transition: border-color 0.3s, background 0.3s;
+        }
+        .custom-upload-area.drag-over {
+            border-color: rgba(99, 102, 241, 0.8);
+            background: rgba(99, 102, 241, 0.06);
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                        purple: '#6366f1',
+                        blue: '#3b82f6',
+                        dark: '#0f172a',
+                    },
+                        "primary": "#6366f1",
+                        "primary-container": "#4338ca",
+                        "on-primary-container": "#e0e7ff",
+                        "secondary": "#38bdf8",
+                        "surface": "#0f172a",
+                        "surface-container": "#1e293b",
+                        "surface-container-low": "#0f172a",
+                        "surface-container-lowest": "#020617",
+                        "on-surface": "#f1f5f9",
+                        "on-surface-variant": "#94a3b8",
+                        "outline-variant": "#334155",
+                        "background": "#0f172a"
+                    },
+                    fontFamily: {
+                        "headline": ["Inter", "sans-serif"],
+                        "body": ["Inter", "sans-serif"],
+                        "label": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.375rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
 </head>
-<body>
-    <!-- Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-        <div class="container">
-            <a class="navbar-brand fw-bold" href="{{ url_for('dashboard') }}">
-                <i class="fas fa-code"></i> CodeInsight
-            </a>
-            <li class="nav-item">
-                <a class="nav-link" href="{{ url_for('about') }}">Learn</a>
-            </li>
-            <div class="ms-auto">
-                <a class="btn btn-light btn-sm" href="{{ url_for('logout') }}">Logout</a>
-                
-            </div>
-        </div>
-    </nav>
+<body class="text-on-surface font-body selection:bg-primary/30 min-h-screen">
+<!-- TopNavBar -->
+<nav class="fixed top-0 z-50 w-full flex justify-between items-center px-8 py-3 nav-blur border-b border-white/5">
+<div class="flex items-center space-x-3">
+<div class="w-10 h-10 bg-gradient-to-br from-brand-purple to-brand-blue rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
+<svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<span class="text-xl font-bold tracking-tight text-white">CodeInsight</span>
+<button class="hidden sm:flex items-center px-4 py-1.5 rounded-full text-xs font-bold bg-gradient-to-r from-amber-400 to-orange-500 text-slate-900 hover:shadow-[0_0_15px_rgba(251,191,36,0.5)] transition-all transform hover:scale-105 ml-4">UPGRADE PLAN</button>
+</div>
+<div class="flex items-center gap-6">
+<div class="hidden lg:flex items-center gap-2 text-slate-400 text-xs">
+                <div class="flex items-center gap-3">
+{% if user and user|length > 5 and user[5] %}
+<img src="{{ url_for('static', filename='avatars/' + user[5]) }}" alt="avatar" class="w-10 h-10 rounded-full border border-white/20"/>
+{% else %}
+<div class="w-10 h-10 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 flex items-center justify-center text-white text-sm font-bold">{{ user[1][0] if user else 'U' }}</div>
+{% endif %}
+<span class="text-sm font-medium text-slate-300"><span class="text-white">{{ user[1] if user else 'User' }}</span>
+<span class="ml-2 px-2 py-0.5 bg-brand-purple/20 text-brand-purple text-[10px] font-bold rounded border border-brand-purple/40 uppercase tracking-tighter">{{ user[3] if user and user|length > 3 else 'Free' }}</span></span>
+</div>
+</div>
+<a class="text-slate-400 hover:text-white text-sm font-medium" href="{{ url_for('about') }}">Learn</a>
+<a class="text-slate-400 hover:text-white transition-colors text-sm font-medium" href="{{ url_for('dashboard') }}">Dashboard</a>
+<a class="bg-white/10 hover:bg-white/20 text-white px-4 py-1.5 rounded-lg text-sm font-medium transition-all" href="{{ url_for('logout') }}">Logout</a>
+</div>
+</nav>
+<!-- Main Content Canvas -->
+<main class="flex flex-col items-center justify-center min-h-[calc(100vh-80px)] px-6 py-12">
+<!-- Animated Background Ornament (Subtle) -->
+<div class="absolute top-1/4 left-1/4 w-96 h-96 bg-primary-container/10 rounded-full blur-[120px] pointer-events-none"></div>
+<div class="absolute bottom-1/4 right-1/4 w-96 h-96 bg-secondary-container/5 rounded-full blur-[120px] pointer-events-none"></div>
+<!-- Central Upload Card -->
+<div class="relative w-full max-w-2xl glass-card p-10 rounded-[2rem] shadow-2xl flex flex-col items-center">
+<div class="text-center mb-10">
+<h1 class="font-headline text-4xl font-bold tracking-tight text-primary mb-3">Initialize Analysis</h1>
+<p class="text-on-surface-variant text-lg">Upload your Python source to begin the architectural audit.</p>
+</div>
+<!-- Upload Area -->
+<label class="group relative w-full h-72 custom-upload-area rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all duration-300 hover:bg-surface-variant/20 overflow-hidden" for="file-upload" id="dropZoneLabel">
+<input accept=".py,.java,.js,.css,.html" class="hidden" id="file-upload" type="file"/>
 
-    <div class="container py-5">
-        <div class="row justify-content-center">
-            <div class="col-lg-6">
-                <div class="card shadow-lg">
-                    <div class="card-body p-5">
-                        <h1 class="h3 fw-bold mb-2">Upload Python File</h1>
-                        <p class="text-muted mb-4">Select a .py file to analyze</p>
-                        
-                        <form id="uploadForm">
-                            <div class="mb-4">
-                                <div id="dropZone" class="border border-2 border-dashed border-primary rounded-3 p-5 text-center" 
-                                     style="cursor: pointer; transition: all 0.3s;">
-                                    <i class="fas fa-cloud-upload-alt text-primary" style="font-size: 3rem;"></i>
-                                    <p class="mt-3 mb-0">
-                                        <strong>Click to upload</strong> or drag and drop
-                                    </p>
-                                    <p class="text-muted mt-2 mb-0">
-                                        Python files (.py) only
-                                    </p>
-                                </div>
-                                <input type="file" id="fileInput" name="file" accept=".py" class="form-control d-none">
-                            </div>
-                            
-                            <div id="fileInfo" class="alert alert-info d-none" role="alert">
-                                <strong id="fileName"></strong>
-                            </div>
-                            
-                            <div id="errorAlert" class="alert alert-danger d-none" role="alert"></div>
-                            <div id="successAlert" class="alert alert-success d-none" role="alert"></div>
-                            
-                            <div id="loadingSpinner" class="d-none">
-                                <div class="spinner-border text-primary" role="status">
-                                    <span class="visually-hidden">Loading...</span>
-                                </div>
-                                <span class="ms-2">Uploading...</span>
-                            </div>
-                            
-                            <button type="submit" class="btn btn-primary w-100 py-2 fw-bold d-none" id="submitBtn">
-                                <i class="fas fa-upload"></i> Upload File
-                            </button>
-                        </form>
-                        
-                        <hr class="my-4">
-                        <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary w-100">
-                            Back to Dashboard
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+<!-- Default prompt -->
+<div id="upload-prompt" class="flex flex-col items-center gap-4 group-hover:-translate-y-2 transition-transform duration-300">
+<div class="w-20 h-20 rounded-full bg-secondary-container/20 flex items-center justify-center text-secondary border border-secondary/20 shadow-[0_0_20px_rgba(0,175,254,0.1)] group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-4xl" data-icon="cloud_upload">cloud_upload</span>
+</div>
+<div class="text-center">
+<span class="text-xl font-semibold text-on-surface block mb-1">Click to upload or drag and drop</span>
+<span class="text-outline text-sm font-medium tracking-wide">.py files (.py) only</span>
+</div>
+</div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        const dropZone = document.getElementById('dropZone');
-        const fileInput = document.getElementById('fileInput');
-        const fileInfo = document.getElementById('fileInfo');
-        const fileName = document.getElementById('fileName');
-        const submitBtn = document.getElementById('submitBtn');
-        const errorAlert = document.getElementById('errorAlert');
-        const successAlert = document.getElementById('successAlert');
-        const loadingSpinner = document.getElementById('loadingSpinner');
-        const uploadForm = document.getElementById('uploadForm');
+<!-- File selected state (hidden initially) -->
+<div id="file-selected-state" class="hidden flex-col items-center gap-3">
+<div class="w-20 h-20 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400 border border-emerald-500/20">
+<span class="material-symbols-outlined text-4xl">check_circle</span>
+</div>
+<div class="text-center">
+<span id="selected-file-name" class="text-xl font-semibold text-on-surface block mb-1"></span>
+<span class="text-slate-400 text-sm">File ready — click Confirm to upload</span>
+</div>
+</div>
 
-        // Click to upload
-        dropZone.addEventListener('click', () => fileInput.click());
+<!-- Subtle Decorative Corners -->
+<div class="absolute top-4 left-4 w-2 h-2 border-t border-l border-primary/40"></div>
+<div class="absolute top-4 right-4 w-2 h-2 border-t border-r border-primary/40"></div>
+<div class="absolute bottom-4 left-4 w-2 h-2 border-b border-l border-primary/40"></div>
+<div class="absolute bottom-4 right-4 w-2 h-2 border-b border-r border-primary/40"></div>
+</label>
 
-        // Drag and drop
-        dropZone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            dropZone.style.backgroundColor = '#e7f3ff';
-            dropZone.style.borderColor = '#0d6efd';
-        });
+<!-- Alerts -->
+<div id="errorAlert" class="hidden w-full mt-5 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-sm font-medium"></div>
+<div id="successAlert" class="hidden w-full mt-5 px-4 py-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-sm font-medium"></div>
 
-        dropZone.addEventListener('dragleave', () => {
-            dropZone.style.backgroundColor = 'white';
-            dropZone.style.borderColor = '#0d6efd';
-        });
+<!-- Card Actions -->
+<div class="mt-10 w-full flex flex-col items-center gap-6">
+<button id="submitBtn" onclick="uploadFile()" disabled class="w-full py-4 rounded-xl bg-gradient-to-r from-primary-container to-primary text-on-primary font-bold text-lg tracking-tight hover:brightness-110 transition-all shadow-lg active:scale-95 duration-150 disabled:opacity-40 disabled:cursor-not-allowed">
+                    Confirm Source Code
+                </button>
+</div>
+</div>
+<!-- Navigation Link -->
+<a class="mt-8 flex items-center gap-2 text-on-surface-variant hover:text-primary transition-colors group" href="{{ url_for('dashboard') }}">
+<span class="material-symbols-outlined text-sm transition-transform group-hover:-translate-x-1" data-icon="arrow_back">arrow_back</span>
+<span class="text-sm font-medium tracking-wide">Back to Dashboard</span>
+</a>
+</main>
+<!-- Decorative Bottom Gradient Shade -->
+<div class="fixed bottom-0 left-0 w-full h-32 bg-gradient-to-t from-background to-transparent pointer-events-none opacity-60"></div>
 
-        dropZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropZone.style.backgroundColor = 'white';
+<script>
+    const fileInput         = document.getElementById('file-upload');
+    const dropZoneLabel     = document.getElementById('dropZoneLabel');
+    const uploadPrompt      = document.getElementById('upload-prompt');
+    const fileSelectedState = document.getElementById('file-selected-state');
+    const selectedFileName  = document.getElementById('selected-file-name');
+    const submitBtn         = document.getElementById('submitBtn');
+    const errorAlert        = document.getElementById('errorAlert');
+    const successAlert      = document.getElementById('successAlert');
+
+    const ALLOWED = ['py', 'java', 'js', 'css', 'html'];
+
+    // Drag and drop on the label
+    dropZoneLabel.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZoneLabel.classList.add('drag-over');
+    });
+    dropZoneLabel.addEventListener('dragleave', () => {
+        dropZoneLabel.classList.remove('drag-over');
+    });
+    dropZoneLabel.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZoneLabel.classList.remove('drag-over');
+        if (e.dataTransfer.files.length) {
             fileInput.files = e.dataTransfer.files;
             handleFileSelect();
-        });
+        }
+    });
 
-        // File input change
-        fileInput.addEventListener('change', handleFileSelect);
+    fileInput.addEventListener('change', handleFileSelect);
 
-        function handleFileSelect() {
-            const file = fileInput.files[0];
-            
-            if (!file) {
-                fileInfo.classList.add('d-none');
-                submitBtn.classList.add('d-none');
-                return;
-            }
+    function handleFileSelect() {
+        hideAlerts();
+        const file = fileInput.files[0];
+        if (!file) return;
 
-            // Validate file type
-            if (!file.name.endsWith('.py')) {
-                errorAlert.textContent = 'Only .py files are allowed';
-                errorAlert.classList.remove('d-none');
-                successAlert.classList.add('d-none');
-                fileInput.value = '';
-                fileInfo.classList.add('d-none');
-                submitBtn.classList.add('d-none');
-                return;
-            }
-
-            errorAlert.classList.add('d-none');
-            successAlert.classList.add('d-none');
-            fileName.textContent = file.name;
-            fileInfo.classList.remove('d-none');
-            submitBtn.classList.remove('d-none');
+        const ext = file.name.split('.').pop().toLowerCase();
+        if (!ALLOWED.includes(ext)) {
+            showError('Invalid file type. Allowed: .' + ALLOWED.join(', .'));
+            fileInput.value = '';
+            return;
         }
 
-        // Form submission
-        uploadForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
+        selectedFileName.textContent = file.name;
+        uploadPrompt.classList.add('hidden');
+        fileSelectedState.classList.remove('hidden');
+        fileSelectedState.classList.add('flex');
+        submitBtn.disabled = false;
+    }
 
-            const file = fileInput.files[0];
-            if (!file) {
-                errorAlert.textContent = 'Please select a file';
-                errorAlert.classList.remove('d-none');
-                return;
-            }
+    async function uploadFile() {
+        const file = fileInput.files[0];
+        if (!file) { showError('Please select a file.'); return; }
 
-            const formData = new FormData();
-            formData.append('file', file);
+        hideAlerts();
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Uploading...';
 
-            loadingSpinner.classList.remove('d-none');
-            submitBtn.disabled = true;
+        const formData = new FormData();
+        formData.append('file', file);
 
-            try {
-                const response = await fetch('/upload', {
-                    method: 'POST',
-                    body: formData
-                });
+        try {
+            const response = await fetch('/upload', { method: 'POST', body: formData });
+            const data = await response.json();
 
-                const data = await response.json();
-
-                if (response.ok) {
-                    successAlert.textContent = 'File uploaded successfully! Redirecting...';
-                    successAlert.classList.remove('d-none');
-                    errorAlert.classList.add('d-none');
-                    
-                    setTimeout(() => {
-                        window.location.href = `/analyze/${data.file_id}`;
-                    }, 1500);
-                } else {
-                    errorAlert.textContent = data.error;
-                    errorAlert.classList.remove('d-none');
-                    loadingSpinner.classList.add('d-none');
-                    submitBtn.disabled = false;
-                }
-            } catch (error) {
-                errorAlert.textContent = 'An error occurred. Please try again.';
-                errorAlert.classList.remove('d-none');
-                loadingSpinner.classList.add('d-none');
+            if (response.ok && data.file_id) {
+                showSuccess('Upload successful! Redirecting to analysis...');
+                submitBtn.textContent = 'Success!';
+                setTimeout(() => { window.location.href = '/analyze/' + data.file_id; }, 1200);
+            } else {
+                showError(data.error || 'Upload failed. Please try again.');
                 submitBtn.disabled = false;
+                submitBtn.textContent = 'Confirm Source Code';
             }
-        });
-    </script>
-</body>
-</html>
+        } catch (err) {
+            showError('Network error. Please try again.');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Confirm Source Code';
+        }
+    }
+
+    function showError(msg)   { errorAlert.textContent = msg; errorAlert.classList.remove('hidden'); successAlert.classList.add('hidden'); }
+    function showSuccess(msg) { successAlert.textContent = msg; successAlert.classList.remove('hidden'); errorAlert.classList.add('hidden'); }
+    function hideAlerts()     { errorAlert.classList.add('hidden'); successAlert.classList.add('hidden'); }
+</script>
+</body></html>
