@@ -15,14 +15,18 @@ Open terminal / PowerShell in your project folder:
 🔹 2. Activate Virtual Environment
 
 ▶️ On Windows (PowerShell):
+
     venv\Scripts\Activate
 
 If error comes (execution policy), run:
 
 Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
 ▶️ On Windows (CMD):
+
     venv\Scripts\activate
+    
 ▶️ On Mac/Linux:
+
     source venv/bin/activate
     
 ✅ After activation, you will see:
