@@ -160,7 +160,11 @@
                 </div>
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-300">{{ file[2] }}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-300">Python</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
+                {% set ext = file[1].rsplit('.', 1)[-1].lower() %}
+                {% set lang_map = {'py': 'Python', 'java': 'Java', 'js': 'JavaScript', 'css': 'CSS', 'html': 'HTML'} %}
+                {{ lang_map.get(ext, 'Unknown') }}
+            </td>
             <td class="px-6 py-4 whitespace-nowrap text-right">
                 <div class="flex items-center justify-end gap-2">
                 <a href="{{ url_for('analyze', file_id=file[0]) }}" class="px-4 py-1.5 bg-brand-purple/20 hover:bg-brand-purple/30 text-brand-purple text-xs font-bold rounded-lg border border-brand-purple/30 transition-all uppercase tracking-wide">

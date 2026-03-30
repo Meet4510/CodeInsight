@@ -141,9 +141,9 @@
         <span class="material-symbols-outlined text-3xl text-brand-purple">report_problem</span>
     </div>
     <h3 class="text-xl font-bold mb-3">Syntax Errors</h3>
-    <p class="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">We check for Python syntax errors that prevent code execution. Invalid syntax is identified using Python’s AST parser.</p>
+    <p class="text-sm text-slate-500 dark:text-slate-400 leading-relaxed"><strong>Python:</strong> Invalid syntax is identified using Python's AST parser (missing colons, indentation). <strong>Java:</strong> Validated through bracket/brace matching and method/class declaration patterns.</p>
     <div class="mt-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-md">
-        <p class="text-sm text-red-700 font-semibold">Example: Missing colons, incorrect indentation, undefined variables</p>
+        <p class="text-sm text-red-700 font-semibold">Python: Missing colons, indentation errors | Java: Unmatched braces, invalid declarations</p>
     </div>
 </div>
 <!-- Code Style (PEP 8) -->
@@ -151,10 +151,10 @@
     <div class="w-14 h-14 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform bg-brand-purple/20">
         <span class="material-symbols-outlined text-3xl text-brand-purple">palette</span>
     </div>
-    <h3 class="text-xl font-bold mb-3">Code Style (PEP 8)</h3>
-    <p class="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">Evaluates adherence to PEP 8 Python style guidelines using Pylint. This includes naming conventions, spacing, and formatting standards.</p>
+    <h3 class="text-xl font-bold mb-3">Code Style</h3>
+    <p class="text-sm text-slate-500 dark:text-slate-400 leading-relaxed"><strong>Python:</strong> Evaluated using Pylint against PEP 8 guidelines (naming, spacing, formatting). <strong>Java:</strong> Structural analysis including class/method organization and code metrics.</p>
     <div class="mt-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-md">
-        <p class="text-sm text-red-700 font-semibold">Example: Variable naming (snake_case), line length, whitespace consistency</p>
+        <p class="text-sm text-red-700 font-semibold">Python: snake_case naming, line length | Java: CamelCase conventions, method structure</p>
     </div>
 </div>
 <!-- Cyclomatic Complexity -->
@@ -163,9 +163,9 @@
         <span class="material-symbols-outlined text-3xl text-brand-purple">settings</span>
     </div>
     <h3 class="text-xl font-bold mb-3">Cyclomatic Complexity</h3>
-    <p class="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">Measures code complexity by counting decision points (if, loops, etc.). Lower complexity means code is easier to understand and test.</p>
+    <p class="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">Measures code complexity by counting decision points (if, loops, etc.) across languages. <strong>Python:</strong> Uses Radon. <strong>Java:</strong> Method counts and nesting analysis. Lower complexity = easier to understand and test.</p>
     <div class="mt-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-md">
-        <p class="text-sm text-red-700 font-semibold">Range: 1 (simple) to 10+ (complex) | Ideal: ≤ 3</p>
+        <p class="text-sm text-red-700 font-semibold">Range: 1 (simple) to 10+ (complex) across all languages | Ideal: ≤ 3</p>
     </div>
 </div>
 <!-- Maintainability Index -->
@@ -174,9 +174,9 @@
         <span class="material-symbols-outlined text-3xl text-brand-purple">health_and_safety</span>
     </div>
     <h3 class="text-xl font-bold mb-3">Maintainability Index</h3>
-    <p class="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">Calculated using lines of code, cyclomatic complexity, and Halstead metrics. Shows how easy it is to maintain and update the code.</p>
+    <p class="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">Calculated using lines of code, cyclomatic complexity, and code metrics across Python and Java. Shows how easy it is to maintain, understand, and update your code over time.</p>
     <div class="mt-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-md">
-        <p class="text-sm text-red-700 font-semibold">Range: 0-100 | 85+ (Excellent), 50-85 (Good), &lt;50 (Poor)</p>
+        <p class="text-sm text-red-700 font-semibold">Range: 0-100 | 85+ (Excellent), 50-85 (Good), &lt;50 (Poor) - Language agnostic</p>
     </div>
 </div>
 </div>
@@ -214,13 +214,13 @@
 <section class="glass-card rounded-[2.5rem] p-12">
     <div class="text-center mb-12">
         <h2 class="text-4xl font-black mb-3 text-white">Scoring System (0-100)</h2>
-        <p class="max-w-2xl mx-auto text-slate-300">Your overall score is calculated by combining three weighted metrics. Each metric is scored independently and then summed to produce the final score.</p>
+        <p class="max-w-2xl mx-auto text-slate-300">Your overall score is calculated by combining three weighted metrics across Python and Java files. Each metric is scored independently and then summed to produce the final score.</p>
     </div>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
         <div class="glass-card p-8 rounded-2xl bg-white/5 border border-white/10">
             <h3 class="text-xl font-bold text-white mb-4">Metric weights</h3>
             <ul class="space-y-4 text-slate-300">
-                <li><span class="font-semibold text-white">Style Score (PEP 8 Compliance)</span> — <span class="text-primary">40 pts</span><br><span class="text-sm">Each style issue deducts points; perfect PEP 8 gives the full 40 points.</span></li>
+                <li><span class="font-semibold text-white">Style Score</span> — <span class="text-primary">40 pts</span><br><span class="text-sm">Python (PEP 8) / Java (conventions): Perfect adherence gives the full 40 points.</span></li>
                 <li><span class="font-semibold text-white">Complexity Score (Cyclomatic)</span> — <span class="text-primary">30 pts</span><br><span class="text-sm">Lower complexity scores best; high complexity reduces the score.</span></li>
                 <li><span class="font-semibold text-white">Maintainability Score</span> — <span class="text-primary">30 pts</span><br><span class="text-sm">Higher maintainability index yields higher points.</span></li>
             </ul>
@@ -294,6 +294,13 @@
         <h3 class="text-xl font-bold mb-3">Radon</h3>
         <p class="text-slate-500 text-sm">Measures cyclomatic complexity and maintainability index of Python code.</p>
     </div>
+    <div class="glass-card p-8 rounded-2xl hover:ring-2 ring-primary/30 transition-all">
+        <div class="w-14 h-14 rounded-xl flex items-center justify-center mb-6 bg-brand-purple/20">
+            <span class="material-symbols-outlined text-3xl text-brand-purple">code</span>
+        </div>
+        <h3 class="text-xl font-bold mb-3">Java Parser</h3>
+        <p class="text-slate-500 text-sm">Analyzes Java code structure using syntax validation, method/class counting, and structural metrics.</p>
+    </div>
 </div>
 </section>
 <!-- FAQ -->
@@ -318,7 +325,7 @@
                             <span class="material-symbols-outlined group-open:rotate-180 transition-transform">expand_more</span>
 </summary>
 <div class="mt-4 text-slate-500 leading-relaxed border-t border-primary/10 pt-4">
-                            We support over 25 languages including JavaScript, Python, Java, C++, Go, and Rust. New language definitions are added every quarter.
+                            CodeInsight supports <strong>Python</strong> (with Pylint and Radon) and <strong>Java</strong> (with custom syntax validation and metrics). Both languages receive comprehensive analysis with standardized scoring metrics.
                         </div>
 </details>
 </div>

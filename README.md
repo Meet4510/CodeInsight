@@ -1,6 +1,6 @@
 # CodeInsight
 
-A simple web application for analyzing Python code quality. This is an MCA minor project that demonstrates code analysis, scoring, and reporting.
+A powerful web application for analyzing code quality across multiple languages including Python and Java. This is an MCA minor project that demonstrates comprehensive code analysis, scoring, and reporting for multiple programming languages.
 
 ##Setup
 
@@ -49,16 +49,16 @@ Run:
 - Password hashing with Werkzeug
 - Session management
 
-✅ **Python File Upload**
-- Upload .py files only
-- File validation
-- Local storage
+✅ **Multi-Language File Upload**
+- Upload Python (.py) and Java (.java) files
+- File validation and language detection
+- Local storage and metadata tracking
 
 ✅ **Code Analysis**
-- Syntax check using AST
-- Code style check using Pylint
-- Complexity analysis using Radon
-- Maintainability calculation
+- **Python**: Syntax check using AST, style analysis with Pylint, complexity using Radon
+- **Java**: Syntax validation, code structure analysis, bracket/brace matching
+- Language-specific metrics and issue detection
+- Maintainability calculation for both languages
 
 ✅ **Quality Scoring**
 - Style Score (0-60)
@@ -120,7 +120,7 @@ Run:
 │   │   └── style.css
 │   └── /js
 │       └── (JavaScript files)
-└── /uploads           # Uploaded Python files
+└── /uploads           # Uploaded code files (Python, Java, etc.)
 ```
 
 ---
@@ -131,6 +131,7 @@ Run:
 - Python 3.x installed
 - MySQL Server installed and running
 - pip (Python package manager)
+- Java Development Kit (JDK) optional for local Java development
 
 ### Step 1: Clone/Download Project
 ```bash
@@ -143,10 +144,10 @@ pip install -r requirements.txt
 ```
 
 This will install:
-- Flask 2.3.0
+- Flask 3.0.0
 - Flask-MySQLdb 1.0.1
-- Werkzeug 2.3.0
-- pylint 2.17.0
+- Werkzeug 3.0.0
+- pylint ≥3.0.0
 - radon 6.0.1
 - reportlab 4.0.4
 

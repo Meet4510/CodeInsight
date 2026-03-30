@@ -89,7 +89,347 @@ def is_allowed(plan, language):
 
 # Code Analysis Module
 class CodeAnalyzer:
-    """Analyze Python code for syntax, style, and complexity"""
+    """Analyze code for syntax, style, and complexity"""
+    
+    @staticmethod
+    def get_file_language(filepath):
+        """Detect language from file extension"""
+        ext = filepath.rsplit('.', 1)[-1].lower()
+        lang_map = {'py': 'python', 'java': 'java', 'js': 'javascript', 'css': 'css', 'html': 'html'}
+        return lang_map.get(ext, 'unknown')
+    
+    @staticmethod
+    def check_java_syntax(filepath):
+        """Basic Java syntax checking"""
+        issues = []
+        try:
+            with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+                code = f.read()
+            
+            lines = code.split('\n')
+            
+            # Check for common Java syntax issues
+            brace_count = 0
+            paren_count = 0
+            bracket_count = 0
+            in_string = False
+            escape_next = False
+            string_char = None
+            
+            for line_no, line in enumerate(lines, 1):
+                stripped = line.strip()
+                
+                # Skip comments
+                if stripped.startswith('//'):
+                    continue
+                
+                # Check for unmatched braces
+                for i, char in enumerate(line):
+                    if escape_next:
+                        escape_next = False
+                        continue
+                    if char == '\\':
+                        escape_next = True
+                        continue
+                    if char in ('"', "'") and not in_string:
+                        in_string = True
+                        string_char = char
+                    elif char == string_char and in_string:
+                        in_string = False
+                    elif not in_string:
+                        if char == '{': brace_count += 1
+                        elif char == '}': brace_count -= 1
+                        elif char == '(': paren_count += 1
+                        elif char == ')': paren_count -= 1
+                        elif char == '[': bracket_count += 1
+                        elif char == ']': bracket_count -= 1
+                
+                # Common Java issues
+                if 'public class' in line and '{' not in line:
+                    issues.append(f"Line {line_no}: Missing opening brace after class declaration")
+                if 'public static void main' in line and 'String[] args' not in line:
+                    issues.append(f"Line {line_no}: main method should have String[] args parameter")
+                if re.search(r'System\.out\.println\s*\([^)]*\);', line):
+                    pass  # Valid print statement
+                if re.search(r'\)\s*\{?\s*$', line) and 'import' not in line and '{' not in line:
+                    if 'public' in line or 'private' in line or 'protected' in line:
+                        issues.append(f"Line {line_no}: Missing opening brace after method declaration")
+            
+            if brace_count != 0:
+                issues.append(f"Unmatched braces: {abs(brace_count)} missing closing brace(s)")
+            if paren_count != 0:
+                issues.append(f"Unmatched parentheses: {abs(paren_count)} missing")
+            if bracket_count != 0:
+                issues.append(f"Unmatched brackets: {abs(bracket_count)} missing")
+            
+            return issues
+        except Exception as e:
+            return [f"Java syntax check error: {str(e)}"]
+    
+    @staticmethod
+    def get_java_metrics(filepath):
+        """Get comprehensive Java code metrics"""
+        try:
+            with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+                code = f.read()
+            
+            lines = code.split('\n')
+            total_lines = len(lines)
+            code_lines = len([line for line in lines if line.strip() and not line.strip().startswith('//')
+                            and not line.strip().startswith('/*') and '*/'
+                            not in line])
+            
+            # Count methods, classes, and interfaces
+            methods = len(re.findall(r'(public|private|protected|static)*\s+(void|int|String|boolean|double|float|long|.*?)\s+\w+\s*\([^)]*\)\s*\{', code))
+            classes = len(re.findall(r'(public|private)?\s*class\s+\w+', code))
+            interfaces = len(re.findall(r'(public|private)?\s*interface\s+\w+', code))
+            
+            # Count nested blocks (indicator of complexity)
+            max_nesting = 0
+            current_nesting = 0
+            for char in code:
+                if char == '{':
+                    current_nesting += 1
+                    max_nesting = max(max_nesting, current_nesting)
+                elif char == '}':
+                    current_nesting = max(0, current_nesting - 1)
+            
+            return {
+                'total_lines': total_lines,
+                'code_lines': code_lines,
+                'functions': methods,
+                'classes': classes,
+                'interfaces': interfaces,
+                'max_nesting': max_nesting
+            }
+        except Exception as e:
+            return {'total_lines': 0, 'code_lines': 0, 'functions': 0, 'classes': 0, 'interfaces': 0, 'max_nesting': 0, 'error': str(e)}
+    
+    @staticmethod
+    def calculate_java_complexity(filepath):
+        """Calculate cyclomatic complexity for Java code"""
+        try:
+            with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+                code = f.read()
+            
+            # Count decision points
+            decision_points = 0
+            decision_keywords = ['if', 'else if', 'else', 'for', 'while', 'switch', 'case', 'catch', '?', ':']
+            
+            for keyword in decision_keywords:
+                # Use word boundaries to avoid matching partial words
+                if keyword in ['?', ':']:
+                    matches = len(re.findall(re.escape(keyword), code))
+                else:
+                    matches = len(re.findall(r'\b' + keyword + r'\b', code))
+                decision_points += matches
+            
+            # Method/lambda complexity
+            methods = len(re.findall(r'\b(public|private|protected|static)*\s+(void|int|String|boolean|\w+)\s+\w+\s*\([^)]*\)\s*\{', code))
+            lambdas = len(re.findall(r'->', code))
+            
+            # Base complexity: 1 + (decision_points / method_count)
+            if methods > 0:
+                avg_complexity = 1 + (decision_points / methods) * 0.15
+            else:
+                avg_complexity = 1 + (decision_points * 0.05)
+            
+            # Adjust for nesting depth (penalize deep nesting)
+            metrics = CodeAnalyzer.get_java_metrics(filepath)
+            max_nesting = metrics.get('max_nesting', 0)
+            if max_nesting > 5:
+                avg_complexity += (max_nesting - 5) * 0.3
+            
+            # Add lambda complexity
+            avg_complexity += lambdas * 0.2
+            
+            return min(round(avg_complexity, 2), 10.0)  # Cap at 10, round to 2 decimals
+        except Exception as e:
+            return 1.0
+    
+    @staticmethod
+    def calculate_java_maintainability(filepath):
+        """Calculate maintainability index for Java code"""
+        try:
+            metrics = CodeAnalyzer.get_java_metrics(filepath)
+            complexity = CodeAnalyzer.calculate_java_complexity(filepath)
+            
+            lines = metrics.get('code_lines', 1)
+            methods = metrics.get('functions', 0)
+            classes = metrics.get('classes', 0)
+            interfaces = metrics.get('interfaces', 0)
+            
+            # Improved Maintainability Index (0-100) based on code quality indicators
+            # This should reward clean, well-structured code and penalize problematic patterns
+            
+            # Start with good base score
+            mi = 85
+            
+            # PENALIZE: Very deep nesting (sign of complex control flow)
+            max_nesting = metrics.get('max_nesting', 0)
+            if max_nesting > 7:
+                mi -= 15  # Major penalty for deeply nested code
+            elif max_nesting > 5:
+                mi -= 8   # Medium penalty
+            elif max_nesting > 3:
+                mi -= 3   # Minor penalty
+            else:
+                mi += 5   # Bonus for shallow, readable nesting
+            
+            # PENALIZE: Very high complexity indicates too many decision points
+            # A score of 5+ is concerning, 10+ is very bad
+            if complexity > 10:
+                mi -= 20
+            elif complexity > 8:
+                mi -= 12
+            elif complexity > 6:
+                mi -= 6
+            elif complexity <= 2:
+                mi += 10  # Bonus for simple, understandable code
+            
+            # PENALIZE: Extremely long methods (>150 LOC average per method)
+            if methods > 0:
+                avg_method_lines = lines / methods
+                if avg_method_lines > 150:
+                    mi -= 15
+                elif avg_method_lines > 100:
+                    mi -= 8
+                elif avg_method_lines < 20:
+                    mi += 5  # Bonus for well-refactored, small methods
+            
+            # REWARD: Multiple classes indicate good separation of concerns
+            if classes >= 3:
+                mi += 5
+            if interfaces > 0:
+                mi += 5
+            
+            # Reasonable LOC is fine - modern code can be 500+ lines
+            # Only penalize if EXTREMELY large (>1000 LOC)
+            if lines > 1000:
+                mi -= 10
+            elif lines > 500 and complexity > 6:
+                mi -= 5  # Only penalize large files with high complexity
+            
+            # Clamp between 0 and 100
+            return max(0, min(100, mi))
+        except Exception as e:
+            return 50.0
+    
+    @staticmethod
+    def check_java_style(filepath):
+        """Comprehensive Java code style and conventions checking"""
+        issues = []
+        errors = []  # Critical issues like missing JavaDoc, raw types, hardcoded credentials
+        warnings = []  # Important issues like string concat in loops, too many params, deep nesting
+        infos = []  # Minor style issues
+        
+        try:
+            with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+                code = f.read()
+            
+            lines = code.split('\n')
+            
+            for line_no, line in enumerate(lines, 1):
+                stripped = line.strip()
+                
+                # Skip empty lines and pure comment lines
+                if not stripped or stripped.startswith('//'):
+                    continue
+                
+                # **CRITICAL ERRORS**
+                # Check for missing JavaDoc on public class
+                if 'public class' in line and line_no > 1:
+                    # Look back up to 10 lines for JavaDoc
+                    has_javadoc = False
+                    for i in range(max(0, line_no - 10), line_no - 1):
+                        if '/**' in lines[i] or '@' in lines[i]:
+                            has_javadoc = True
+                            break
+                    if not has_javadoc:
+                        errors.append(f"[ERROR] Line {line_no}: Public class missing JavaDoc")
+                
+                # Check for public methods without JavaDoc (skip @Override which inherits docs)
+                if re.search(r'public\s+(static\s+)?\w+\s+\w+\s*\(', line) and 'main' not in line:
+                    # Skip if preceded by @Override or other annotation
+                    has_annotation = any('@' in lines[i].strip() for i in range(max(0, line_no-3), line_no - 1))
+                    if not has_annotation:
+                        has_javadoc = False
+                        for i in range(max(0, line_no - 10), line_no - 1):
+                            if '/**' in lines[i]:
+                                has_javadoc = True
+                                break
+                        if not has_javadoc:
+                            errors.append(f"[ERROR] Line {line_no}: Public method missing JavaDoc")
+                
+                # Check for raw types (ArrayList, HashMap, etc without generics)
+                if re.search(r'(ArrayList|HashMap|HashSet|LinkedList|TreeMap|Vector|Hashtable)\s*[=;{(]', line):
+                    if '<' not in line or '>' not in line:
+                        errors.append(f"[ERROR] Line {line_no}: Raw type - use generics")
+                
+                # Check for public mutable static fields
+                if re.search(r'public\s+static\s+(?!final)\w+\s+\w+\s*[=;]', line):
+                    errors.append(f"[ERROR] Line {line_no}: Public static field should be 'final'")
+                
+                # Check for hardcoded credentials/passwords
+                if re.search(r'(password|passwd|pwd|secret|credential|api[_-]?key|token)\s*=\s*["\']', line, re.IGNORECASE):
+                    errors.append(f"[ERROR] Line {line_no}: Hardcoded credential detected")
+                
+                # Check for suspicious hardcoded strings
+                if re.search(r'(root|admin|test123|password|pass123)', line, re.IGNORECASE) and '=' in line and 'final' not in line:
+                    errors.append(f"[ERROR] Line {line_no}: Suspicious hardcoded value")
+                
+                # **IMPORTANT WARNINGS**
+                # Check for too many parameters
+                params_match = re.search(r'\(([^)]*)\)', line)
+                if params_match and 'public' in line:
+                    params = params_match.group(1)
+                    param_count = len([p for p in params.split(',') if p.strip()]) if params.strip() else 0
+                    if param_count > 5:
+                        warnings.append(f"[WARNING] Line {line_no}: Too many parameters ({param_count})")
+                
+                # Check for string concatenation in loops
+                if '+=' in line and (any(lw in'\n'.join(lines[max(0, line_no-6):line_no]) for lw in ['for (', 'while ('])):
+                    if '"' in line or "'" in line:
+                        warnings.append(f"[WARNING] Line {line_no}: String concatenation in loop")
+                
+                # Check for catching generic Exception
+                if re.search(r'catch\s*\(\s*Exception\s+\w+', line):
+                    warnings.append(f"[WARNING] Line {line_no}: Catching generic Exception")
+                
+                # Check for dead code
+                if 'if (false)' in line or 'if(false)' in line:
+                    warnings.append(f"[WARNING] Line {line_no}: Dead code block")
+                
+                # Check for SQL injection
+                if any(sql in line for sql in ['executeQuery', 'execute(']):
+                    if '+' in line:
+                        warnings.append(f"[WARNING] Line {line_no}: Potential SQL injection")
+                
+                # Check line length
+                if len(line) > 120:
+                    warnings.append(f"[WARNING] Line {line_no}: Line exceeds 120 characters")
+                
+                # **MINOR STYLE ISSUES**
+                # Check for magic numbers (only 2+ digit assignments)
+                if '=' in line and not stripped.startswith('for'):
+                    assignment_match = re.search(r'=\s*([0-9]{2,})\s*[;,)]', line)
+                    if assignment_match:
+                        number = assignment_match.group(1)
+                        common = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '16', 
+                                '24', '32', '60', '100', '256', '512', '1000', '1024', '10000', '100000', 
+                                '360', '180', '255', '127', '128', '65535']
+                        if number not in common:
+                            infos.append(f"[INFO] Line {line_no}: Magic number '{number}'")
+
+            
+            # Combine and sort by severity (errors first, then warnings, then infos)
+            # Strict limits prevent over-flagging good code
+            all_issues = errors[:4] + warnings[:5] + infos[:3]  # Max 4 errors, 5 warnings, 3 infos
+            
+            return all_issues if all_issues else ["[INFO] Code meets quality standards"]
+        
+        except Exception as e:
+            return [f"[ERROR] Java style check error: {str(e)}"]
     
     @staticmethod
     def check_syntax(filepath):
@@ -244,19 +584,33 @@ class CodeAnalyzer:
     
     @staticmethod
     def analyze(filepath):
-        """Complete code analysis with enhanced metrics"""
-        analysis = {
-            'syntax_issues': CodeAnalyzer.check_syntax(filepath),
-            'style_issues': CodeAnalyzer.check_code_style(filepath),
-            'complexity': CodeAnalyzer.calculate_complexity(filepath),
-            'maintainability': CodeAnalyzer.calculate_maintainability(filepath),
-            'metrics': CodeAnalyzer.get_code_metrics(filepath)
-        }
+        """Complete code analysis with language detection"""
+        language = CodeAnalyzer.get_file_language(filepath)
+        
+        if language == 'java':
+            # Java analysis with calculated metrics
+            analysis = {
+                'syntax_issues': CodeAnalyzer.check_java_syntax(filepath),
+                'style_issues': CodeAnalyzer.check_java_style(filepath),
+                'complexity': CodeAnalyzer.calculate_java_complexity(filepath),
+                'maintainability': CodeAnalyzer.calculate_java_maintainability(filepath),
+                'metrics': CodeAnalyzer.get_java_metrics(filepath)
+            }
+        else:
+            # Python analysis (default)
+            analysis = {
+                'syntax_issues': CodeAnalyzer.check_syntax(filepath),
+                'style_issues': CodeAnalyzer.check_code_style(filepath),
+                'complexity': CodeAnalyzer.calculate_complexity(filepath),
+                'maintainability': CodeAnalyzer.calculate_maintainability(filepath),
+                'metrics': CodeAnalyzer.get_code_metrics(filepath)
+            }
+        
         return analysis
 
 # Scoring Module
-def categorize_issues(issues):
-    """Group pylint issues into categories for easier reading."""
+def categorize_issues(issues, language='python'):
+    """Group issues into categories with language awareness."""
     categories = {
         'Formatting': [],
         'Naming': [],
@@ -267,16 +621,28 @@ def categorize_issues(issues):
 
     for issue in issues:
         key = issue.lower()
-        if any(tag in key for tag in ['bad-indentation', 'trailing-whitespace', 'missing-final-newline', 'line-too-long', 'superfluous-parens', 'wrong-import-position', 'ungrouped-imports']):
-            categories['Formatting'].append(issue)
-        elif 'invalid-name' in key:
-            categories['Naming'].append(issue)
-        elif any(tag in key for tag in ['missing-module-docstring', 'missing-function-docstring', 'missing-class-docstring']):
-            categories['Documentation'].append(issue)
-        elif any(tag in key for tag in ['unused-import', 'unused-variable', 'undefined-variable', 'broad-except', 'too-many-branches', 'too-many-statements', 'too-many-locals', 'unused-argument', 'redefined-outer-name']):
-            categories['Logic'].append(issue)
+        if language == 'java':
+            if any(tag in key for tag in ['line exceeds', 'magic number', 'multiple statements', 'missing spaces', 'line length']):
+                categories['Formatting'].append(issue)
+            elif any(tag in key for tag in ['should start with uppercase', 'should use camelcase', 'snake_case', 'naming']):
+                categories['Naming'].append(issue)
+            elif any(tag in key for tag in ['todo', 'fixme', 'docstring', 'documentation', 'comment']):
+                categories['Documentation'].append(issue)
+            elif any(tag in key for tag in ['unmatched', 'brace', 'parenthes', 'bracket', 'syntax error', 'invalid']):
+                categories['Logic'].append(issue)
+            else:
+                categories['Other'].append(issue)
         else:
-            categories['Other'].append(issue)
+            if any(tag in key for tag in ['bad-indentation', 'trailing-whitespace', 'missing-final-newline', 'line-too-long', 'superfluous-parens', 'wrong-import-position', 'ungrouped-imports']):
+                categories['Formatting'].append(issue)
+            elif 'invalid-name' in key:
+                categories['Naming'].append(issue)
+            elif any(tag in key for tag in ['missing-module-docstring', 'missing-function-docstring', 'missing-class-docstring']):
+                categories['Documentation'].append(issue)
+            elif any(tag in key for tag in ['unused-import', 'unused-variable', 'undefined-variable', 'broad-except', 'too-many-branches', 'too-many-statements', 'too-many-locals', 'unused-argument', 'redefined-outer-name']):
+                categories['Logic'].append(issue)
+            else:
+                categories['Other'].append(issue)
 
     # Remove empty categories
     return {k: v for k, v in categories.items() if v}
@@ -287,54 +653,68 @@ class ScoreCalculator:
     
     @staticmethod
     def calculate_score(analysis):
-        """Calculate overall score (0-100) with stricter criteria"""
+        """Calculate overall score (0-100) rewarding clean, well-structured code"""
         
         metrics = analysis.get('metrics', {})
         
-        # Style Score (0-60) using explicit buckets - highest weight
-        style_issues_count = len(analysis['style_issues'])
-        if style_issues_count == 0:
-            style_score = 60
-        elif 1 <= style_issues_count <= 3:
-            style_score = 45
-        elif 4 <= style_issues_count <= 6:
-            style_score = 30
-        else:
-            style_score = 15
+        # Style Score (0-50) - Focus on critical issues only
+        # Good code can have minor issues but should have 0 critical errors
+        style_issues = analysis['style_issues']
+        error_count = len([i for i in style_issues if '[ERROR]' in i])
+        warning_count = len([i for i in style_issues if '[WARNING]' in i])
         
-        # Complexity Score (0-20) using explicit buckets - lower weight
+        if error_count == 0 and warning_count == 0:
+            style_score = 50  # Perfect style
+        elif error_count == 0 and warning_count <= 2:
+            style_score = 45  # Minor issues only
+        elif error_count == 0 and warning_count <= 5:
+            style_score = 40  # Some issues but no errors
+        elif error_count <= 2:
+            style_score = 30  # Critical issues present
+        elif error_count <= 5:
+            style_score = 20
+        else:
+            style_score = 10  # Many issues
+        
+        # Complexity Score (0-25) - REWARD simple code
         complexity = analysis['complexity']
-        if complexity <= 2:
-            complexity_score = 20
+        if complexity <= 1.5:
+            complexity_score = 25  # Excellent: very simple
+        elif complexity <= 2.5:
+            complexity_score = 23  # Very good: simple code
         elif complexity <= 4:
-            complexity_score = 17
-        elif complexity <= 7:
-            complexity_score = 13
+            complexity_score = 20  # Good: low complexity
+        elif complexity <= 6:
+            complexity_score = 15  # Fair: moderate complexity
+        elif complexity <= 8:
+            complexity_score = 10  # Poor: too complex
         elif complexity <= 10:
-            complexity_score = 7
+            complexity_score = 5   # Very poor
         else:
-            complexity_score = 0
+            complexity_score = 0   # Unacceptable
         
-        # Maintainability Score (0-20) using explicit buckets - lower weight
+        # Maintainability Score (0-25) - REWARD well-structured code  
         mi = analysis['maintainability']
         if mi >= 85:
-            maintainability_score = 20
-        elif mi >= 70:
-            maintainability_score = 17
+            maintainability_score = 25  # Excellent: highly maintainable
+        elif mi >= 75:
+            maintainability_score = 22  # Very good: well-maintained
+        elif mi >= 65:
+            maintainability_score = 18  # Good: maintainable
         elif mi >= 50:
-            maintainability_score = 13
-        elif mi >= 25:
-            maintainability_score = 7
+            maintainability_score = 12  # Fair: somewhat maintainable
+        elif mi >= 35:
+            maintainability_score = 6   # Poor: hard to maintain
         else:
-            maintainability_score = 0
+            maintainability_score = 0   # Very poor
         
-        # Total score is the sum of the three weighted metrics
+        # Total score: sum of weighted components (50 + 25 + 25 = 100)
         total_score = style_score + complexity_score + maintainability_score
 
         # Provide percentages for UI bars (0-100)
-        style_pct = int(round((style_score / 60) * 100)) if 60 else 0
-        complexity_pct = int(round((complexity_score / 20) * 100)) if 20 else 0
-        maintainability_pct = int(round((maintainability_score / 20) * 100)) if 20 else 0
+        style_pct = int(round((style_score / 50) * 100)) if 50 else 0
+        complexity_pct = int(round((complexity_score / 25) * 100)) if 25 else 0
+        maintainability_pct = int(round((maintainability_score / 25) * 100)) if 25 else 0
 
         # Estimated technical debt (hours) from maintainability index.
         # High maintainability gives lower debt and vice versa.
@@ -352,61 +732,99 @@ class ScoreCalculator:
         }
     
     @staticmethod
-    def get_suggestions(analysis, scores):
-        """Generate detailed and strict improvement suggestions"""
+    def get_suggestions(analysis, scores, language='python'):
+        """Generate detailed and strict improvement suggestions with language awareness."""
         suggestions = []
         metrics = analysis.get('metrics', {})
         
         # Critical issues first
         if len(analysis['syntax_issues']) > 0:
-            suggestions.append("CRITICAL: Fix all syntax errors immediately. Code cannot run with syntax errors.")
+            if language == 'java':
+                suggestions.append("CRITICAL: Fix all syntax errors immediately. Unmatched braces/parentheses prevent compilation.")
+            else:
+                suggestions.append("CRITICAL: Fix all syntax errors immediately. Code cannot run with syntax errors.")
         
         # Style issues
         style_count = len(analysis['style_issues'])
         if style_count > 10:
-            suggestions.append("SEVERE: Code has excessive style violations. Run 'pylint' and fix all issues.")
+            if language == 'java':
+                suggestions.append("SEVERE: Code has excessive style violations. Focus on Java naming conventions (CamelCase) and formatting.")
+            else:
+                suggestions.append("SEVERE: Code has excessive style violations. Run 'pylint' and fix all issues.")
         elif style_count > 5:
-            suggestions.append("HIGH PRIORITY: Multiple style issues detected. Focus on PEP 8 compliance.")
+            if language == 'java':
+                suggestions.append("HIGH PRIORITY: Multiple style issues detected. Focus on Java code conventions and structure.")
+            else:
+                suggestions.append("HIGH PRIORITY: Multiple style issues detected. Focus on PEP 8 compliance.")
         elif style_count > 0:
             suggestions.append("Address remaining style issues for better code quality.")
 
-        # Specific lint hints
-        if any('missing-docstring' in issue for issue in analysis['style_issues']):
-            suggestions.append("Add docstrings for modules, classes, and functions to improve readability and maintenance.")
-        if any('invalid-name' in issue or 'invalid-name' in issue.lower() for issue in analysis['style_issues']):
-            suggestions.append("Use clear, descriptive variable/function names (snake_case) for better readability.")
-        if any('unused-import' in issue for issue in analysis['style_issues']):
-            suggestions.append("Remove unused imports to keep the code clean and reduce cognitive load.")
-        if any('unused-variable' in issue for issue in analysis['style_issues']):
-            suggestions.append("Remove or use unused variables; they often signal dead code or logic errors.")
+        # Specific hints based on language
+        if language == 'java':
+            if any('camelcase' in issue.lower() or 'method name' in issue.lower() for issue in analysis['style_issues']):
+                suggestions.append("Use camelCase for method and variable names (e.g., calculateTotal, getUserName).")
+            if any('uppercase' in issue.lower() or 'class name' in issue.lower() for issue in analysis['style_issues']):
+                suggestions.append("Use PascalCase for class names (e.g., DataProcessor, UserManager).")
+            if any('magic number' in issue.lower() for issue in analysis['style_issues']):
+                suggestions.append("Replace magic numbers with named constants (static final) for clarity and maintainability.")
+            if any('line length' in issue.lower() or 'exceeds' in issue.lower() for issue in analysis['style_issues']):
+                suggestions.append("Keep line length under 120 characters for better readability.")
+        else:
+            if any('missing-docstring' in issue for issue in analysis['style_issues']):
+                suggestions.append("Add docstrings for modules, classes, and functions to improve readability and maintenance.")
+            if any('invalid-name' in issue for issue in analysis['style_issues']):
+                suggestions.append("Use clear, descriptive variable/function names (snake_case) for better readability.")
+            if any('unused-import' in issue for issue in analysis['style_issues']):
+                suggestions.append("Remove unused imports to keep the code clean and reduce cognitive load.")
+            if any('unused-variable' in issue for issue in analysis['style_issues']):
+                suggestions.append("Remove or use unused variables; they often signal dead code or logic errors.")
 
         # Complexity issues
         complexity = analysis['complexity']
         if complexity > 15:
-            suggestions.append("CRITICAL: Extremely high complexity. Refactor into multiple smaller functions immediately.")
+            suggestions.append("CRITICAL: Extremely high complexity. Refactor into multiple smaller methods/functions immediately.")
         elif complexity > 10:
-            suggestions.append("HIGH: Break down complex functions. Aim for complexity < 10 per function.")
+            suggestions.append("HIGH: Code is too complex. Break down into smaller, focused methods/functions.")
         elif complexity > 7:
-            suggestions.append("MODERATE: Consider simplifying logic to reduce complexity.")
+            suggestions.append("MODERATE: Consider simplifying logic and reducing decision points (if/else, loops, etc.).")
+
+        # Nesting depth (Java-specific)
+        if language == 'java' and metrics.get('max_nesting', 0) > 5:
+            suggestions.append(f"JAVA: Maximum nesting depth is {metrics['max_nesting']} - reduce to 3-4 levels for readability.")
 
         # Maintainability issues
         mi = analysis['maintainability']
         if mi < 30:
             suggestions.append("CRITICAL: Code is very hard to maintain. Major refactoring required.")
         elif mi < 50:
-            suggestions.append("HIGH: Add comprehensive docstrings, comments, and simplify structure.")
+            if language == 'java':
+                suggestions.append("HIGH: Add comments/JavaDoc, break down complex methods, and reduce nesting depth.")
+            else:
+                suggestions.append("HIGH: Add comprehensive docstrings, comments, and simplify structure.")
         elif mi < 70:
             suggestions.append("MODERATE: Improve documentation and code organization.")
 
         # Code metrics suggestions
         if metrics.get('total_lines', 0) > 500:
-            suggestions.append("File too long. Split into multiple modules for better organization.")
-        if metrics.get('functions', 0) > 20:
-            suggestions.append("Too many functions in one file. Consider splitting into classes or modules.")
+            if language == 'java':
+                suggestions.append("File too long. Consider splitting into multiple classes or extracting helper classes.")
+            else:
+                suggestions.append("File too long. Split into multiple modules for better organization.")
+        
+        methods_or_functions = metrics.get('functions', 0)
+        classes_or_modules = metrics.get('classes', 0)
+        if methods_or_functions > 20 and classes_or_modules > 0:
+            if language == 'java':
+                suggestions.append(f"Too many methods per class ({methods_or_functions} methods). Consider breaking into multiple classes.")
+            else:
+                suggestions.append("Too many functions in one file. Consider splitting into classes or modules.")
         if metrics.get('code_lines', 0) / max(metrics.get('total_lines', 1), 1) < 0.3:
             suggestions.append("Too many comments/empty lines. Focus on actual code implementation.")
-        if metrics.get('functions', 0) == 0:
-            suggestions.append("No functions defined. Consider organizing code into functions.")
+        if methods_or_functions == 0 and classes_or_modules == 0:
+            if language == 'java':
+                suggestions.append("No classes or methods defined. Consider organizing code with proper class structure.")
+            else:
+                suggestions.append("No functions defined. Consider organizing code into functions.")
 
         # Positive feedback for good code
         if len(analysis['syntax_issues']) == 0 and style_count == 0 and complexity <= 3 and mi >= 85:
@@ -619,13 +1037,14 @@ def analyze(file_id):
         # Perform analysis
         try:
             analysis = CodeAnalyzer.analyze(filepath)
+            language = CodeAnalyzer.get_file_language(filepath)
             print(f"Analysis results: {analysis}")
             scores = ScoreCalculator.calculate_score(analysis)
             print(f"Scores: {scores}")
-            suggestions = ScoreCalculator.get_suggestions(analysis, scores)
+            suggestions = ScoreCalculator.get_suggestions(analysis, scores, language)
 
             issues = analysis['syntax_issues'] + analysis['style_issues']
-            categorized_issues = categorize_issues(issues)
+            categorized_issues = categorize_issues(issues, language)
         except Exception as e:
             print(f"Analysis error: {e}")
             return render_template('results.html', 
@@ -756,10 +1175,11 @@ def view_results(file_id):
         try:
             filepath = os.path.join(app.config['UPLOAD_FOLDER'], file_info[2])
             latest_analysis = CodeAnalyzer.analyze(filepath)
+            language = CodeAnalyzer.get_file_language(filepath)
             scores = ScoreCalculator.calculate_score(latest_analysis)
-            suggestions = ScoreCalculator.get_suggestions(latest_analysis, scores)
+            suggestions = ScoreCalculator.get_suggestions(latest_analysis, scores, language)
             issues = latest_analysis['syntax_issues'] + latest_analysis['style_issues']
-            categorized_issues = categorize_issues(issues)
+            categorized_issues = categorize_issues(issues, language)
             
             # Use fresh data
             score = scores['total_score']
@@ -867,8 +1287,9 @@ def generate_pdf(file_id):
         # Re-run analysis to apply current scoring rules and capture full issue list
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], file_info[2])
         latest_analysis = CodeAnalyzer.analyze(filepath)
+        language = CodeAnalyzer.get_file_language(filepath)
         latest_scores = ScoreCalculator.calculate_score(latest_analysis)
-        latest_suggestions = ScoreCalculator.get_suggestions(latest_analysis, latest_scores)
+        latest_suggestions = ScoreCalculator.get_suggestions(latest_analysis, latest_scores, language)
         latest_issues = latest_analysis['syntax_issues'] + latest_analysis['style_issues']
         
         # Create PDF document
