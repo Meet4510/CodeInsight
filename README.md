@@ -8,32 +8,34 @@ A simple web application for analyzing Python code quality. This is an MCA minor
 
 Open terminal / PowerShell in your project folder:
 
-python -m venv venv
+    python -m venv venv
 
 👉 This creates a folder named venv
 
 🔹 2. Activate Virtual Environment
+
 ▶️ On Windows (PowerShell):
-venv\Scripts\Activate
+    venv\Scripts\Activate
 
 If error comes (execution policy), run:
 
 Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
 ▶️ On Windows (CMD):
-venv\Scripts\activate
+    venv\Scripts\activate
 ▶️ On Mac/Linux:
-source venv/bin/activate
-
+    source venv/bin/activate
+    
 ✅ After activation, you will see:
 
-(venv) PS C:\your-project>
+    (venv) PS C:\your-project>
+    
 🔹 3. Install requirements.txt
 
 Make sure requirements.txt is in your project folder.
 
 Run:
 
-pip install -r requirements.txt
+    pip install -r requirements.txt
 
 
 ## Features
