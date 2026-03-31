@@ -65,6 +65,7 @@
         /* Anchor offset for fixed header */
         #analysis,
         #parameters,
+        #advanced-metrics,
         #tools,
         #faq {
             scroll-margin-top: 6rem;
@@ -86,6 +87,7 @@
 <nav class="hidden md:flex items-center gap-6">
 <a class="text-sm font-medium text-slate-400 hover:text-white transition-colors" href="#analysis">Analysis</a>
 <a class="text-sm font-medium text-slate-400 hover:text-white transition-colors" href="#parameters">Parameters</a>
+<a class="text-sm font-medium text-slate-400 hover:text-white transition-colors" href="#advanced-metrics">Metric Logic</a>
 <a class="text-sm font-medium text-slate-400 hover:text-white transition-colors" href="#tools">Tools</a>
 <a class="text-sm font-medium text-slate-400 hover:text-white transition-colors" href="#faq">FAQ</a>
 </nav>
@@ -220,9 +222,9 @@
         <div class="glass-card p-8 rounded-2xl bg-white/5 border border-white/10">
             <h3 class="text-xl font-bold text-white mb-4">Metric weights</h3>
             <ul class="space-y-4 text-slate-300">
-                <li><span class="font-semibold text-white">Style Score</span> — <span class="text-primary">40 pts</span><br><span class="text-sm">Python (PEP 8) / Java (conventions): Perfect adherence gives the full 40 points.</span></li>
-                <li><span class="font-semibold text-white">Complexity Score (Cyclomatic)</span> — <span class="text-primary">30 pts</span><br><span class="text-sm">Lower complexity scores best; high complexity reduces the score.</span></li>
-                <li><span class="font-semibold text-white">Maintainability Score</span> — <span class="text-primary">30 pts</span><br><span class="text-sm">Higher maintainability index yields higher points.</span></li>
+                <li><span class="font-semibold text-white">Style Score</span> — <span class="text-primary">50 pts</span><br><span class="text-sm">Severity-aware issues (errors/warnings) determine the style bucket.</span></li>
+                <li><span class="font-semibold text-white">Complexity Score (Cyclomatic)</span> — <span class="text-primary">25 pts</span><br><span class="text-sm">Lower complexity scores best; deep nesting and dense branching reduce points.</span></li>
+                <li><span class="font-semibold text-white">Maintainability Score</span> — <span class="text-primary">25 pts</span><br><span class="text-sm">Higher maintainability index yields higher points after risk penalties.</span></li>
             </ul>
         </div>
         <div class="glass-card p-8 rounded-2xl bg-white/5 border border-white/10">
@@ -241,27 +243,62 @@
                     <tbody>
                         <tr class="border-t border-white/10">
                             <td class="px-4 py-4">Style Issues</td>
-                            <td class="px-4 py-4">0 issues = 40 pts</td>
-                            <td class="px-4 py-4">1-3 issues = 30 pts</td>
-                            <td class="px-4 py-4">4-6 issues = 20 pts</td>
+                            <td class="px-4 py-4">0 E / 0 W = 50 pts</td>
+                            <td class="px-4 py-4">0 E / ≤2 W = 45 pts</td>
+                            <td class="px-4 py-4">0 E / ≤5 W = 40 pts</td>
                             <td class="px-4 py-4">7+ issues = 10 pts</td>
                         </tr>
                         <tr class="border-t border-white/10">
                             <td class="px-4 py-4">Complexity (CC)</td>
-                            <td class="px-4 py-4">≤ 2 = 30 pts</td>
-                            <td class="px-4 py-4">2-4 = 25 pts</td>
-                            <td class="px-4 py-4">4-7 = 20 pts</td>
+                            <td class="px-4 py-4">≤ 1.5 = 25 pts</td>
+                            <td class="px-4 py-4">≤ 2.5 = 23 pts</td>
+                            <td class="px-4 py-4">≤ 4 = 20 pts</td>
                             <td class="px-4 py-4">> 10 = 0 pts</td>
                         </tr>
                         <tr class="border-t border-white/10">
                             <td class="px-4 py-4">Maintainability Index</td>
-                            <td class="px-4 py-4">≥ 85 = 30 pts</td>
-                            <td class="px-4 py-4">70-85 = 25 pts</td>
-                            <td class="px-4 py-4">50-70 = 20 pts</td>
+                            <td class="px-4 py-4">≥ 85 = 25 pts</td>
+                            <td class="px-4 py-4">≥ 75 = 22 pts</td>
+                            <td class="px-4 py-4">≥ 65 = 18 pts</td>
                             <td class="px-4 py-4">< 25 = 0 pts</td>
                         </tr>
                     </tbody>
                 </table>
+            </div>
+        </div>
+    </div>
+</section>
+<!-- Advanced Metric Logic -->
+<section id="advanced-metrics" class="glass-card rounded-[2.5rem] p-12">
+    <div class="text-center mb-12">
+        <h2 class="text-4xl font-black mb-3 text-white">How Cyclomatic &amp; Maintainability Work</h2>
+        <p class="max-w-3xl mx-auto text-slate-300">This section explains the current engine logic used for Java scoring in production, including penalties and thresholds.</p>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div class="glass-card p-8 rounded-2xl bg-white/5 border border-white/10">
+            <h3 class="text-xl font-bold text-white mb-4">Cyclomatic Complexity (Java)</h3>
+            <ul class="space-y-3 text-slate-300 text-sm leading-relaxed">
+                <li><span class="text-white font-semibold">1.</span> Count decision points: <span class="text-primary">if, else-if, else, for, while, switch, case, catch, ?, :</span></li>
+                <li><span class="text-white font-semibold">2.</span> Compute base complexity: <span class="text-primary">1 + (decision_points / methods) * 0.15</span></li>
+                <li><span class="text-white font-semibold">3.</span> Add branch-density penalty from decision points per 100 code lines.</li>
+                <li><span class="text-white font-semibold">4.</span> Add deep-nesting penalty using max brace depth (extra heavy after depth 10).</li>
+                <li><span class="text-white font-semibold">5.</span> Add lambda penalty (<span class="text-primary">+0.2</span> each) and cap final value at <span class="text-primary">10.0</span>.</li>
+            </ul>
+            <div class="mt-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-md">
+                <p class="text-sm text-red-700 font-semibold">Complexity score map: ≤1.5→25, ≤2.5→23, ≤4→20, ≤6→15, ≤8→10, ≤10→5, >10→0</p>
+            </div>
+        </div>
+        <div class="glass-card p-8 rounded-2xl bg-white/5 border border-white/10">
+            <h3 class="text-xl font-bold text-white mb-4">Maintainability Index (Java)</h3>
+            <ul class="space-y-3 text-slate-300 text-sm leading-relaxed">
+                <li><span class="text-white font-semibold">1.</span> Start from base <span class="text-primary">MI = 85</span>.</li>
+                <li><span class="text-white font-semibold">2.</span> Apply structure penalties for deep nesting, high complexity, and oversized methods.</li>
+                <li><span class="text-white font-semibold">3.</span> Apply risk-pattern penalties (capped): raw types, generic catch, hardcoded secrets, mutable public static fields, dead code, SQL string concatenation.</li>
+                <li><span class="text-white font-semibold">4.</span> Clamp final MI to <span class="text-primary">0..100</span>.</li>
+                <li><span class="text-white font-semibold">5.</span> Convert MI to score: <span class="text-primary">≥85→25, ≥75→22, ≥65→18, ≥50→12, ≥35→6, else 0</span>.</li>
+            </ul>
+            <div class="mt-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-md">
+                <p class="text-sm text-red-700 font-semibold">Technical debt shown in results: (100 - MI) × 0.15 hours</p>
             </div>
         </div>
     </div>
@@ -363,7 +400,6 @@
 <footer class="border-t border-white/10 py-12 bg-black/20 backdrop-blur-sm">
 <div class="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-8">
 <div class="flex items-center gap-2 opacity-60 grayscale hover:grayscale-0 transition-all text-brand-purple">
-<span class="material-symbols-outlined font-bold">terminal</span>
 <span class="font-black uppercase tracking-widest text-sm">CodeInsight</span>
 </div>
 <div class="flex gap-10 text-sm text-slate-400 font-medium">
@@ -372,7 +408,7 @@
 <a class="hover:text-primary transition-colors" href="#">Contact Support</a>
 </div>
 <div class="text-slate-400 text-sm">
-                © 2024 CodeInsight. All rights reserved.
+                © 2026 CodeInsight. All rights reserved.
             </div>
 </div>
 </footer>

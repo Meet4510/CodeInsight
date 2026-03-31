@@ -233,12 +233,24 @@ class CodeAnalyzer:
                 avg_complexity = 1 + (decision_points / methods) * 0.15
             else:
                 avg_complexity = 1 + (decision_points * 0.05)
+
+            # Penalize high decision density (many branches per LOC)
+            metrics = CodeAnalyzer.get_java_metrics(filepath)
+            code_lines = max(1, metrics.get('code_lines', 1))
+            decision_density = (decision_points / code_lines) * 100
+            if decision_density > 12:
+                avg_complexity += 2.5
+            elif decision_density > 8:
+                avg_complexity += 1.5
+            elif decision_density > 5:
+                avg_complexity += 0.8
             
             # Adjust for nesting depth (penalize deep nesting)
-            metrics = CodeAnalyzer.get_java_metrics(filepath)
             max_nesting = metrics.get('max_nesting', 0)
-            if max_nesting > 5:
-                avg_complexity += (max_nesting - 5) * 0.3
+            if max_nesting > 10:
+                avg_complexity += (max_nesting - 10) * 0.7 + 2.0
+            elif max_nesting > 5:
+                avg_complexity += (max_nesting - 5) * 0.45
             
             # Add lambda complexity
             avg_complexity += lambdas * 0.2
@@ -253,6 +265,9 @@ class CodeAnalyzer:
         try:
             metrics = CodeAnalyzer.get_java_metrics(filepath)
             complexity = CodeAnalyzer.calculate_java_complexity(filepath)
+            with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+                code = f.read()
+            lines_text = code.split('\n')
             
             lines = metrics.get('code_lines', 1)
             methods = metrics.get('functions', 0)
@@ -267,7 +282,9 @@ class CodeAnalyzer:
             
             # PENALIZE: Very deep nesting (sign of complex control flow)
             max_nesting = metrics.get('max_nesting', 0)
-            if max_nesting > 7:
+            if max_nesting > 10:
+                mi -= 25  # Severe penalty for very deep nesting
+            elif max_nesting > 7:
                 mi -= 15  # Major penalty for deeply nested code
             elif max_nesting > 5:
                 mi -= 8   # Medium penalty
@@ -294,7 +311,7 @@ class CodeAnalyzer:
                     mi -= 15
                 elif avg_method_lines > 100:
                     mi -= 8
-                elif avg_method_lines < 20:
+                elif avg_method_lines < 20 and complexity <= 3 and max_nesting <= 4:
                     mi += 5  # Bonus for well-refactored, small methods
             
             # REWARD: Multiple classes indicate good separation of concerns
@@ -309,6 +326,31 @@ class CodeAnalyzer:
                 mi -= 10
             elif lines > 500 and complexity > 6:
                 mi -= 5  # Only penalize large files with high complexity
+
+            # Penalize risky patterns found in source
+            raw_type_count = 0
+            for src_line in lines_text:
+                s = src_line.strip()
+                if s.startswith('import ') or s.startswith('package '):
+                    continue
+                if re.search(r'(ArrayList|HashMap|HashSet|LinkedList|TreeMap|Vector|Hashtable)\s+[A-Za-z_]', s) and '<' not in s:
+                    raw_type_count += 1
+
+            generic_catch_count = len(re.findall(r'catch\s*\(\s*Exception\s+\w+\s*\)', code))
+            hardcoded_secret_count = len(re.findall(r'(password|passwd|pwd|secret|api[_-]?key|token)\s*=\s*["\']', code, re.IGNORECASE))
+            public_static_mutable_count = len(re.findall(r'public\s+static\s+(?!final)\w+\s+\w+\s*[=;]', code))
+            dead_code_count = len(re.findall(r'if\s*\(\s*false\s*\)', code))
+            sql_concat_count = len(re.findall(r'SELECT\s+.*\+|INSERT\s+.*\+|UPDATE\s+.*\+|DELETE\s+.*\+', code, re.IGNORECASE))
+
+            risk_penalty = (
+                raw_type_count * 2
+                + generic_catch_count * 2
+                + hardcoded_secret_count * 5
+                + public_static_mutable_count * 3
+                + dead_code_count * 3
+                + sql_concat_count * 6
+            )
+            mi -= min(35, risk_penalty)
             
             # Clamp between 0 and 100
             return max(0, min(100, mi))
@@ -333,7 +375,7 @@ class CodeAnalyzer:
                 stripped = line.strip()
                 
                 # Skip empty lines and pure comment lines
-                if not stripped or stripped.startswith('//'):
+                if not stripped or stripped.startswith('//') or stripped.startswith('import ') or stripped.startswith('package '):
                     continue
                 
                 # **CRITICAL ERRORS**
@@ -348,18 +390,42 @@ class CodeAnalyzer:
                     if not has_javadoc:
                         errors.append(f"[ERROR] Line {line_no}: Public class missing JavaDoc")
                 
-                # Check for public methods without JavaDoc (skip @Override which inherits docs)
-                if re.search(r'public\s+(static\s+)?\w+\s+\w+\s*\(', line) and 'main' not in line:
-                    # Skip if preceded by @Override or other annotation
-                    has_annotation = any('@' in lines[i].strip() for i in range(max(0, line_no-3), line_no - 1))
-                    if not has_annotation:
-                        has_javadoc = False
-                        for i in range(max(0, line_no - 10), line_no - 1):
-                            if '/**' in lines[i]:
-                                has_javadoc = True
-                                break
-                        if not has_javadoc:
-                            errors.append(f"[ERROR] Line {line_no}: Public method missing JavaDoc")
+                # Check for public methods without JavaDoc (skip trivial/override methods)
+                method_decl = re.search(
+                    r'public\s+(?:static\s+)?(?:final\s+)?[\w<>\[\], ?]+\s+(\w+)\s*\(',
+                    line
+                )
+                if method_decl:
+                    method_name = method_decl.group(1)
+
+                    # Exempt common trivial/standard methods from mandatory JavaDoc.
+                    # This avoids over-penalizing clean code with concise getters/overrides.
+                    trivial_method = (
+                        method_name == 'main'
+                        or method_name.startswith('get')
+                        or method_name.startswith('set')
+                        or method_name.startswith('is')
+                        or method_name in ['toString', 'equals', 'hashCode', 'compareTo']
+                    )
+
+                    # Skip if method is likely constructor-like naming pattern.
+                    if trivial_method:
+                        pass
+                    else:
+                        # Skip if preceded by @Override or other annotation
+                        has_annotation = any('@' in lines[i].strip() for i in range(max(0, line_no - 3), line_no - 1))
+
+                        # Skip ultra-short single-line methods declared inline.
+                        inline_one_liner = '{' in line and '}' in line
+
+                        if not has_annotation and not inline_one_liner:
+                            has_javadoc = False
+                            for i in range(max(0, line_no - 10), line_no - 1):
+                                if '/**' in lines[i]:
+                                    has_javadoc = True
+                                    break
+                            if not has_javadoc:
+                                errors.append(f"[ERROR] Line {line_no}: Public method missing JavaDoc")
                 
                 # Check for raw types (ArrayList, HashMap, etc without generics)
                 if re.search(r'(ArrayList|HashMap|HashSet|LinkedList|TreeMap|Vector|Hashtable)\s*[=;{(]', line):
@@ -424,7 +490,7 @@ class CodeAnalyzer:
             
             # Combine and sort by severity (errors first, then warnings, then infos)
             # Strict limits prevent over-flagging good code
-            all_issues = errors[:4] + warnings[:5] + infos[:3]  # Max 4 errors, 5 warnings, 3 infos
+            all_issues = errors[:12] + warnings[:12] + infos[:6]  # Capture enough issues to score severe files accurately
             
             return all_issues if all_issues else ["[INFO] Code meets quality standards"]
         
