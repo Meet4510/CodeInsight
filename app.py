@@ -574,6 +574,9 @@ class CodeAnalyzer:
             )
             
             output = result.stdout
+            if result.returncode != 0 or not output.strip():
+                # If analysis fails, treat as high complexity rather than perfect.
+                return 10.0
             
             # Extract complexity value
             if 'Average' in output:
@@ -581,13 +584,13 @@ class CodeAnalyzer:
                 if match:
                     complexity = float(match.group(1))
                 else:
-                    complexity = 1.0
+                    complexity = 8.0
             else:
-                complexity = 1.0
+                complexity = 8.0
             
             return complexity
         except Exception as e:
-            return 1.0
+            return 10.0
     
     @staticmethod
     def calculate_maintainability(filepath):
@@ -601,6 +604,9 @@ class CodeAnalyzer:
             )
             
             output = result.stdout
+            if result.returncode != 0 or not output.strip():
+                # If analysis fails, avoid defaulting to an optimistic maintainability.
+                return 20.0
             
             # Extract maintainability index or grade
             match = re.search(r'([\d.]+)\s+-', output)
@@ -612,14 +618,14 @@ class CodeAnalyzer:
                 if match_letter:
                     grade = match_letter.group(1)
                     # Convert letter to approximate number
-                    grade_map = {'A': 100, 'B': 90, 'C': 80, 'D': 70, 'E': 60, 'F': 50}
-                    mi = grade_map.get(grade, 50.0)
+                    grade_map = {'A': 95, 'B': 80, 'C': 65, 'D': 50, 'E': 35, 'F': 20}
+                    mi = grade_map.get(grade, 20.0)
                 else:
-                    mi = 50.0
+                    mi = 20.0
             
             return mi
         except Exception as e:
-            return 50.0
+            return 20.0
     
     @staticmethod
     def get_code_metrics(filepath):
@@ -722,25 +728,74 @@ class ScoreCalculator:
         """Calculate overall score (0-100) rewarding clean, well-structured code"""
         
         metrics = analysis.get('metrics', {})
+        syntax_issue_count = len(analysis.get('syntax_issues', []))
+
+        # Empty/unparseable files should not appear as high-quality code.
+        if metrics.get('code_lines', 0) == 0:
+            return {
+                'style_score': 0,
+                'complexity_score': 0,
+                'maintainability_score': 0,
+                'style_pct': 0,
+                'complexity_pct': 0,
+                'maintainability_pct': 0,
+                'total_score': 0,
+                'technical_debt_hours': 0.0
+            }
         
-        # Style Score (0-50) - Focus on critical issues only
-        # Good code can have minor issues but should have 0 critical errors
+        # Style Score (0-50)
         style_issues = analysis['style_issues']
-        error_count = len([i for i in style_issues if '[ERROR]' in i])
-        warning_count = len([i for i in style_issues if '[WARNING]' in i])
-        
-        if error_count == 0 and warning_count == 0:
-            style_score = 50  # Perfect style
-        elif error_count == 0 and warning_count <= 2:
-            style_score = 45  # Minor issues only
-        elif error_count == 0 and warning_count <= 5:
-            style_score = 40  # Some issues but no errors
-        elif error_count <= 2:
-            style_score = 30  # Critical issues present
-        elif error_count <= 5:
-            style_score = 20
+        has_java_severity_tags = any(issue.startswith('[') for issue in style_issues)
+
+        if has_java_severity_tags:
+            # Java path: explicit severity tags already present.
+            error_count = len([i for i in style_issues if '[ERROR]' in i])
+            warning_count = len([i for i in style_issues if '[WARNING]' in i])
+
+            if error_count == 0 and warning_count == 0:
+                style_score = 50
+            elif error_count == 0 and warning_count <= 2:
+                style_score = 45
+            elif error_count == 0 and warning_count <= 5:
+                style_score = 40
+            elif error_count <= 2:
+                style_score = 30
+            elif error_count <= 5:
+                style_score = 20
+            else:
+                style_score = 10
         else:
-            style_score = 10  # Many issues
+            # Python path: parse pylint-style severities when available.
+            # E/F are severe, W medium, C/R/info lower priority.
+            py_error_count = 0
+            py_warning_count = 0
+            py_minor_count = 0
+
+            for issue in style_issues:
+                m = re.search(r':\s*([A-Z])\d{4}:', issue)
+                if not m:
+                    py_warning_count += 1
+                    continue
+                code_class = m.group(1)
+                if code_class in ['E', 'F']:
+                    py_error_count += 1
+                elif code_class == 'W':
+                    py_warning_count += 1
+                else:
+                    py_minor_count += 1
+
+            if py_error_count == 0 and py_warning_count == 0 and py_minor_count == 0:
+                style_score = 50
+            elif py_error_count == 0 and py_warning_count <= 2 and py_minor_count <= 5:
+                style_score = 45
+            elif py_error_count == 0 and py_warning_count <= 6 and py_minor_count <= 12:
+                style_score = 35
+            elif py_error_count <= 2 and py_warning_count <= 10:
+                style_score = 25
+            elif py_error_count <= 5:
+                style_score = 15
+            else:
+                style_score = 5
         
         # Complexity Score (0-25) - REWARD simple code
         complexity = analysis['complexity']
@@ -773,6 +828,13 @@ class ScoreCalculator:
             maintainability_score = 6   # Poor: hard to maintain
         else:
             maintainability_score = 0   # Very poor
+
+        # Syntax errors are critical and should significantly lower the total score,
+        # especially for Python files where parsing/tooling may otherwise fallback.
+        if syntax_issue_count > 0:
+            style_score = min(style_score, 5)
+            complexity_score = min(complexity_score, 5)
+            maintainability_score = min(maintainability_score, 6)
         
         # Total score: sum of weighted components (50 + 25 + 25 = 100)
         total_score = style_score + complexity_score + maintainability_score
@@ -1109,6 +1171,10 @@ def analyze(file_id):
             print(f"Scores: {scores}")
             suggestions = ScoreCalculator.get_suggestions(analysis, scores, language)
 
+            empty_file_message = None
+            if analysis.get('metrics', {}).get('code_lines', 0) == 0:
+                empty_file_message = "This file appears to be empty. Add code content and re-run analysis."
+
             issues = analysis['syntax_issues'] + analysis['style_issues']
             categorized_issues = categorize_issues(issues, language)
         except Exception as e:
@@ -1156,6 +1222,7 @@ def analyze(file_id):
                              categorized_issues=categorized_issues,
                              suggestions=suggestions,
                              scores=scores,
+                             empty_file_message=empty_file_message,
                              performance="Optimized" if analysis['complexity'] <= 5 else "Needs Optimization",
                              user=user))
         response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
@@ -1244,6 +1311,9 @@ def view_results(file_id):
             language = CodeAnalyzer.get_file_language(filepath)
             scores = ScoreCalculator.calculate_score(latest_analysis)
             suggestions = ScoreCalculator.get_suggestions(latest_analysis, scores, language)
+            empty_file_message = None
+            if latest_analysis.get('metrics', {}).get('code_lines', 0) == 0:
+                empty_file_message = "This file appears to be empty. Add code content and re-run analysis."
             issues = latest_analysis['syntax_issues'] + latest_analysis['style_issues']
             categorized_issues = categorize_issues(issues, language)
             
@@ -1272,6 +1342,7 @@ def view_results(file_id):
                 'maintainability_pct': 0,
                 'total_score': analysis_result[2] if analysis_result[2] else 0
             }
+            empty_file_message = None
             score = analysis_result[2] if analysis_result[2] else 0
             complexity = float(analysis_result[3]) if analysis_result[3] else 0
             maintainability = float(analysis_result[4]) if analysis_result[4] else 0
@@ -1294,6 +1365,7 @@ def view_results(file_id):
                              categorized_issues=categorized_issues,
                              suggestions=suggestions,
                              scores=scores,
+                             empty_file_message=empty_file_message,
                              user=user)
         
         return render_template('results.html',

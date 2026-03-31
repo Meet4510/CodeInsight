@@ -101,6 +101,15 @@
                     Re-run Analysis
                 </a>
 </div></div>
+{% if empty_file_message %}
+<div class="glass border border-amber-400/40 bg-amber-500/10 rounded-xl p-4 flex items-start gap-3">
+<span class="material-symbols-outlined text-amber-300 mt-0.5">warning</span>
+<div>
+<p class="text-amber-200 font-semibold text-sm">Empty File Detected</p>
+<p class="text-amber-100/90 text-sm">{{ empty_file_message }}</p>
+</div>
+</div>
+{% endif %}
 <!-- KPI Cards Grid -->
 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
 {% set overall_label = 'Excellent' if score >= 90 else 'Good' if score >= 75 else 'Average' if score >= 50 else 'Poor' %}
