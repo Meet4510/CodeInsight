@@ -73,6 +73,12 @@ def get_language(filename):
     
     return mapping.get(ext, 'unknown')
 
+
+def get_display_filename(filename):
+    """Return user-friendly filename; strip legacy timestamp prefix if present."""
+    match = re.match(r'^\d{8}_\d{6}_(.+)$', filename)
+    return match.group(1) if match else filename
+
 # Check if the user's plan allows analyzing the given language
 def is_allowed(plan, language):
     if plan == 'free':
@@ -1076,8 +1082,13 @@ def dashboard():
         user_id = session.get('user_id')
         user = db.get_user_by_id(user_id)
         files = db.get_user_files(user_id)
+        # Show original names in UI for legacy timestamped uploads.
+        display_files = []
+        if files:
+            for file_row in files:
+                display_files.append((file_row[0], get_display_filename(file_row[1]), file_row[2]))
         user_plan = user[3] if user and len(user) > 3 else 'free'
-        return render_template('dashboard.html', user=user, files=files, user_plan=user_plan)
+        return render_template('dashboard.html', user=user, files=display_files, user_plan=user_plan)
         
     except Exception as e:
         return jsonify({'error': f'Dashboard error: {str(e)}'}), 500   
@@ -1120,8 +1131,18 @@ def upload():
         try:
             # Save file
             user_id = session.get('user_id')
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_')
-            filename = timestamp + file.filename
+            original_filename = os.path.basename(file.filename)
+            filename = original_filename
+            name, ext = os.path.splitext(original_filename)
+
+            # Keep imported filename when possible, add suffix only on collision.
+            counter = 1
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            while os.path.exists(filepath):
+                filename = f"{name}_{counter}{ext}"
+                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                counter += 1
+
             filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             file.save(filepath)
             
@@ -1161,6 +1182,7 @@ def analyze(file_id):
             return jsonify({'error': 'File not found'}), 404
         
         print(f"Analyzing file: {filepath}")
+        display_filename = get_display_filename(file_info[2])
         
         # Perform analysis
         try:
@@ -1182,7 +1204,7 @@ def analyze(file_id):
             return render_template('results.html', 
                                  error=f'Analysis failed: {str(e)}',
                                  file_id=file_id,
-                                 filename=file_info[2],
+                                 filename=display_filename,
                                  performance="N/A",
                                  user=user)
 
@@ -1209,8 +1231,8 @@ def analyze(file_id):
         analyzed_path = os.path.abspath(filepath)
         response = make_response(render_template('results.html',
                              file_id=file_id,
-                             filename=file_info[2],
-                             original_filename=file_info[2],
+                             filename=display_filename,
+                             original_filename=display_filename,
                              analyzed_path=analyzed_path,
                              score=scores['total_score'],
                              complexity=analysis['complexity'],
@@ -1292,6 +1314,7 @@ def view_results(file_id):
         
         user = db.get_user_by_id(user_id)
         analysis_result = db.get_analysis_result(file_id)
+        display_filename = get_display_filename(file_info[2])
         
         if not analysis_result:
             return redirect(url_for('upload'))
@@ -1353,7 +1376,8 @@ def view_results(file_id):
 
         return render_template('results.html',
                              file_id=file_id,
-                             filename=file_info[2],
+                             filename=display_filename,
+                             original_filename=display_filename,
                              score=score,
                              complexity=complexity,
                              maintainability=maintainability,
@@ -1413,6 +1437,7 @@ def generate_pdf(file_id):
     try:
         user_id = session.get('user_id')
         file_info = db.get_file_by_id(file_id)
+        display_filename = get_display_filename(file_info[2]) if file_info else "Unknown"
         
         if not file_info or file_info[1] != user_id:
             return jsonify({'error': 'Unauthorized'}), 403
@@ -1460,7 +1485,7 @@ def generate_pdf(file_id):
         
         # File info
         file_table_data = [
-            ['Filename:', file_info[2]],
+            ['Filename:', display_filename],
             ['Analysis Date:', datetime.now().strftime('%Y-%m-%d %H:%M:%S')]
         ]
         file_table = Table(file_table_data, colWidths=[150, 350])
