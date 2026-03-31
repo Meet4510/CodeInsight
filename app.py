@@ -13,6 +13,13 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from io import BytesIO
 
+try:
+    from radon.complexity import cc_visit
+    from radon.metrics import mi_visit
+except Exception:
+    cc_visit = None
+    mi_visit = None
+
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', '0b1443b6ace6b17afde0079911ec829595fae544471a0cb248cde4f3666aa94c')
 
@@ -72,12 +79,6 @@ def get_language(filename):
     }
     
     return mapping.get(ext, 'unknown')
-
-
-def get_display_filename(filename):
-    """Return user-friendly filename; strip legacy timestamp prefix if present."""
-    match = re.match(r'^\d{8}_\d{6}_(.+)$', filename)
-    return match.group(1) if match else filename
 
 # Check if the user's plan allows analyzing the given language
 def is_allowed(plan, language):
@@ -572,29 +573,42 @@ class CodeAnalyzer:
     def calculate_complexity(filepath):
         """Calculate cyclomatic complexity using Radon"""
         try:
+            with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+                code = f.read()
+
+            # Prefer Radon's Python API for stable parsing.
+            if cc_visit is not None:
+                blocks = cc_visit(code)
+                if not blocks:
+                    # Script files may have no function blocks; estimate from decision points.
+                    decision_points = len(re.findall(r'\b(if|elif|for|while|except|and|or|try|with|match|case)\b', code))
+                    return min(10.0, round(1.0 + (decision_points * 0.9), 2))
+
+                avg_complexity = sum(block.complexity for block in blocks) / len(blocks)
+                max_complexity = max(block.complexity for block in blocks)
+                blended = (avg_complexity * 0.7) + (max_complexity * 0.3)
+                return min(10.0, round(max(1.0, blended), 2))
+
+            # Fallback: parse CLI JSON output.
             result = subprocess.run(
-                ['radon', 'cc', filepath, '-a'],
+                ['radon', 'cc', filepath, '-j'],
                 capture_output=True,
                 text=True,
                 timeout=30
             )
-            
-            output = result.stdout
-            if result.returncode != 0 or not output.strip():
-                # If analysis fails, treat as high complexity rather than perfect.
-                return 10.0
-            
-            # Extract complexity value
-            if 'Average' in output:
-                match = re.search(r'Average complexity: ([\d.]+)', output)
-                if match:
-                    complexity = float(match.group(1))
-                else:
-                    complexity = 8.0
-            else:
-                complexity = 8.0
-            
-            return complexity
+
+            if result.returncode == 0 and (result.stdout or '').strip():
+                payload = json.loads(result.stdout)
+                entries = payload.get(filepath) or payload.get(os.path.abspath(filepath)) or []
+                if entries:
+                    avg_complexity = sum(item.get('complexity', 1.0) for item in entries) / len(entries)
+                    max_complexity = max(item.get('complexity', 1.0) for item in entries)
+                    blended = (avg_complexity * 0.7) + (max_complexity * 0.3)
+                    return min(10.0, round(max(1.0, blended), 2))
+                return 1.0
+
+            # If analysis fails, treat as high complexity rather than good complexity.
+            return 10.0
         except Exception as e:
             return 10.0
     
@@ -602,34 +616,33 @@ class CodeAnalyzer:
     def calculate_maintainability(filepath):
         """Calculate maintainability index using Radon"""
         try:
+            with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+                code = f.read()
+
+            # Prefer Radon's Python API for stable numeric MI.
+            if mi_visit is not None:
+                mi = float(mi_visit(code, multi=True))
+                return round(max(0.0, min(100.0, mi)), 2)
+
+            # Fallback: parse CLI JSON output.
             result = subprocess.run(
-                ['radon', 'mi', filepath],
+                ['radon', 'mi', filepath, '-j'],
                 capture_output=True,
                 text=True,
                 timeout=30
             )
-            
-            output = result.stdout
-            if result.returncode != 0 or not output.strip():
-                # If analysis fails, avoid defaulting to an optimistic maintainability.
-                return 20.0
-            
-            # Extract maintainability index or grade
-            match = re.search(r'([\d.]+)\s+-', output)
-            if match:
-                mi = float(match.group(1))
-            else:
-                # Check for letter grade
-                match_letter = re.search(r'-\s+([A-F])', output)
-                if match_letter:
-                    grade = match_letter.group(1)
-                    # Convert letter to approximate number
-                    grade_map = {'A': 95, 'B': 80, 'C': 65, 'D': 50, 'E': 35, 'F': 20}
-                    mi = grade_map.get(grade, 20.0)
-                else:
-                    mi = 20.0
-            
-            return mi
+
+            if result.returncode == 0 and (result.stdout or '').strip():
+                payload = json.loads(result.stdout)
+                record = payload.get(filepath) or payload.get(os.path.abspath(filepath))
+                if isinstance(record, dict):
+                    mi = float(record.get('mi', 20.0))
+                    return round(max(0.0, min(100.0, mi)), 2)
+                if isinstance(record, (int, float)):
+                    return round(max(0.0, min(100.0, float(record))), 2)
+
+            # If analysis fails, avoid optimistic maintainability values.
+            return 20.0
         except Exception as e:
             return 20.0
     
@@ -735,26 +748,13 @@ class ScoreCalculator:
         
         metrics = analysis.get('metrics', {})
         syntax_issue_count = len(analysis.get('syntax_issues', []))
-
-        # Empty/unparseable files should not appear as high-quality code.
-        if metrics.get('code_lines', 0) == 0:
-            return {
-                'style_score': 0,
-                'complexity_score': 0,
-                'maintainability_score': 0,
-                'style_pct': 0,
-                'complexity_pct': 0,
-                'maintainability_pct': 0,
-                'total_score': 0,
-                'technical_debt_hours': 0.0
-            }
         
         # Style Score (0-50)
         style_issues = analysis['style_issues']
         has_java_severity_tags = any(issue.startswith('[') for issue in style_issues)
 
         if has_java_severity_tags:
-            # Java path: explicit severity tags already present.
+            # Java path: preserve existing Java severity model.
             error_count = len([i for i in style_issues if '[ERROR]' in i])
             warning_count = len([i for i in style_issues if '[WARNING]' in i])
 
@@ -771,8 +771,7 @@ class ScoreCalculator:
             else:
                 style_score = 10
         else:
-            # Python path: parse pylint-style severities when available.
-            # E/F are severe, W medium, C/R/info lower priority.
+            # Python path: parse pylint categories (E/F severe, W medium, C/R minor).
             py_error_count = 0
             py_warning_count = 0
             py_minor_count = 0
@@ -790,18 +789,25 @@ class ScoreCalculator:
                 else:
                     py_minor_count += 1
 
+            total_style_issues = py_error_count + py_warning_count + py_minor_count
             if py_error_count == 0 and py_warning_count == 0 and py_minor_count == 0:
                 style_score = 50
-            elif py_error_count == 0 and py_warning_count <= 2 and py_minor_count <= 5:
+            elif py_error_count == 0 and py_warning_count <= 2 and py_minor_count <= 3:
                 style_score = 45
-            elif py_error_count == 0 and py_warning_count <= 6 and py_minor_count <= 12:
-                style_score = 35
-            elif py_error_count <= 2 and py_warning_count <= 10:
-                style_score = 25
-            elif py_error_count <= 5:
-                style_score = 15
+            elif py_error_count == 0 and py_warning_count <= 4 and py_minor_count <= 8:
+                style_score = 32
+            elif py_error_count <= 1 and py_warning_count <= 6:
+                style_score = 22
+            elif py_error_count <= 3:
+                style_score = 12
             else:
                 style_score = 5
+
+            # Volume penalty: many issues should not retain a high style score.
+            if total_style_issues >= 15:
+                style_score = min(style_score, 10)
+            elif total_style_issues >= 10:
+                style_score = min(style_score, 20)
         
         # Complexity Score (0-25) - REWARD simple code
         complexity = analysis['complexity']
@@ -835,8 +841,7 @@ class ScoreCalculator:
         else:
             maintainability_score = 0   # Very poor
 
-        # Syntax errors are critical and should significantly lower the total score,
-        # especially for Python files where parsing/tooling may otherwise fallback.
+        # Syntax errors should heavily impact overall scoring.
         if syntax_issue_count > 0:
             style_score = min(style_score, 5)
             complexity_score = min(complexity_score, 5)
@@ -1082,13 +1087,8 @@ def dashboard():
         user_id = session.get('user_id')
         user = db.get_user_by_id(user_id)
         files = db.get_user_files(user_id)
-        # Show original names in UI for legacy timestamped uploads.
-        display_files = []
-        if files:
-            for file_row in files:
-                display_files.append((file_row[0], get_display_filename(file_row[1]), file_row[2]))
         user_plan = user[3] if user and len(user) > 3 else 'free'
-        return render_template('dashboard.html', user=user, files=display_files, user_plan=user_plan)
+        return render_template('dashboard.html', user=user, files=files, user_plan=user_plan)
         
     except Exception as e:
         return jsonify({'error': f'Dashboard error: {str(e)}'}), 500   
@@ -1131,18 +1131,8 @@ def upload():
         try:
             # Save file
             user_id = session.get('user_id')
-            original_filename = os.path.basename(file.filename)
-            filename = original_filename
-            name, ext = os.path.splitext(original_filename)
-
-            # Keep imported filename when possible, add suffix only on collision.
-            counter = 1
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            while os.path.exists(filepath):
-                filename = f"{name}_{counter}{ext}"
-                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                counter += 1
-
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_')
+            filename = timestamp + file.filename
             filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             file.save(filepath)
             
@@ -1182,7 +1172,6 @@ def analyze(file_id):
             return jsonify({'error': 'File not found'}), 404
         
         print(f"Analyzing file: {filepath}")
-        display_filename = get_display_filename(file_info[2])
         
         # Perform analysis
         try:
@@ -1193,10 +1182,6 @@ def analyze(file_id):
             print(f"Scores: {scores}")
             suggestions = ScoreCalculator.get_suggestions(analysis, scores, language)
 
-            empty_file_message = None
-            if analysis.get('metrics', {}).get('code_lines', 0) == 0:
-                empty_file_message = "This file appears to be empty. Add code content and re-run analysis."
-
             issues = analysis['syntax_issues'] + analysis['style_issues']
             categorized_issues = categorize_issues(issues, language)
         except Exception as e:
@@ -1204,7 +1189,7 @@ def analyze(file_id):
             return render_template('results.html', 
                                  error=f'Analysis failed: {str(e)}',
                                  file_id=file_id,
-                                 filename=display_filename,
+                                 filename=file_info[2],
                                  performance="N/A",
                                  user=user)
 
@@ -1231,8 +1216,8 @@ def analyze(file_id):
         analyzed_path = os.path.abspath(filepath)
         response = make_response(render_template('results.html',
                              file_id=file_id,
-                             filename=display_filename,
-                             original_filename=display_filename,
+                             filename=file_info[2],
+                             original_filename=file_info[2],
                              analyzed_path=analyzed_path,
                              score=scores['total_score'],
                              complexity=analysis['complexity'],
@@ -1244,7 +1229,6 @@ def analyze(file_id):
                              categorized_issues=categorized_issues,
                              suggestions=suggestions,
                              scores=scores,
-                             empty_file_message=empty_file_message,
                              performance="Optimized" if analysis['complexity'] <= 5 else "Needs Optimization",
                              user=user))
         response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
@@ -1314,7 +1298,6 @@ def view_results(file_id):
         
         user = db.get_user_by_id(user_id)
         analysis_result = db.get_analysis_result(file_id)
-        display_filename = get_display_filename(file_info[2])
         
         if not analysis_result:
             return redirect(url_for('upload'))
@@ -1334,9 +1317,6 @@ def view_results(file_id):
             language = CodeAnalyzer.get_file_language(filepath)
             scores = ScoreCalculator.calculate_score(latest_analysis)
             suggestions = ScoreCalculator.get_suggestions(latest_analysis, scores, language)
-            empty_file_message = None
-            if latest_analysis.get('metrics', {}).get('code_lines', 0) == 0:
-                empty_file_message = "This file appears to be empty. Add code content and re-run analysis."
             issues = latest_analysis['syntax_issues'] + latest_analysis['style_issues']
             categorized_issues = categorize_issues(issues, language)
             
@@ -1365,7 +1345,6 @@ def view_results(file_id):
                 'maintainability_pct': 0,
                 'total_score': analysis_result[2] if analysis_result[2] else 0
             }
-            empty_file_message = None
             score = analysis_result[2] if analysis_result[2] else 0
             complexity = float(analysis_result[3]) if analysis_result[3] else 0
             maintainability = float(analysis_result[4]) if analysis_result[4] else 0
@@ -1376,8 +1355,7 @@ def view_results(file_id):
 
         return render_template('results.html',
                              file_id=file_id,
-                             filename=display_filename,
-                             original_filename=display_filename,
+                             filename=file_info[2],
                              score=score,
                              complexity=complexity,
                              maintainability=maintainability,
@@ -1389,18 +1367,7 @@ def view_results(file_id):
                              categorized_issues=categorized_issues,
                              suggestions=suggestions,
                              scores=scores,
-                             empty_file_message=empty_file_message,
                              user=user)
-        
-        return render_template('results.html',
-                             file_id=file_id,
-                             filename=file_info[2],
-                             score=analysis_result[2] if analysis_result[2] else 0,
-                             complexity=float(analysis_result[3]) if analysis_result[3] else 0,
-                             maintainability=float(analysis_result[4]) if analysis_result[4] else 0,
-                             issues=issues,
-                             suggestions=suggestions,
-                             scores=scores)
     except Exception as e:
         return jsonify({'error': f'Error viewing results: {str(e)}'}), 500
 
@@ -1437,7 +1404,6 @@ def generate_pdf(file_id):
     try:
         user_id = session.get('user_id')
         file_info = db.get_file_by_id(file_id)
-        display_filename = get_display_filename(file_info[2]) if file_info else "Unknown"
         
         if not file_info or file_info[1] != user_id:
             return jsonify({'error': 'Unauthorized'}), 403
@@ -1485,7 +1451,7 @@ def generate_pdf(file_id):
         
         # File info
         file_table_data = [
-            ['Filename:', display_filename],
+            ['Filename:', file_info[2]],
             ['Analysis Date:', datetime.now().strftime('%Y-%m-%d %H:%M:%S')]
         ]
         file_table = Table(file_table_data, colWidths=[150, 350])

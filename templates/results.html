@@ -264,7 +264,22 @@
             {% if issues %}
                 {% for issue in issues %}
                 <tr class="hover:bg-white/5">
-                    <td class="px-4 py-4 font-medium text-white">{{ issue.type if issue.type is defined else issue }}</td>
+                    <td class="px-4 py-4 font-medium text-white">
+                        {% set raw_issue = issue.type if issue.type is defined else issue %}
+                        {% if issue.type is defined %}
+                            {{ raw_issue }}
+                        {% else %}
+                            {% set normalized_issue = raw_issue.replace('\\', '/') %}
+                            {% if normalized_issue.startswith('uploads/') %}
+                                {% set issue_parts = normalized_issue.split(':', 1) %}
+                                {% set file_part = issue_parts[0].split('/')[-1] %}
+                                {% set rest_part = issue_parts[1] if issue_parts|length > 1 else '' %}
+                                {{ file_part }}{{ ':' ~ rest_part if rest_part else '' }}
+                            {% else %}
+                                {{ raw_issue }}
+                            {% endif %}
+                        {% endif %}
+                    </td>
                     <td class="px-4 py-4 text-slate-400">{{ issue.location if issue.location is defined else '' }}</td>
                     <td class="px-4 py-4">
                         {% set sev = issue.severity if issue.severity is defined else 'Info' %}
