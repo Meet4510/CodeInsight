@@ -1,9 +1,13 @@
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, make_response
+from flask_mail import Mail, Message
 from models import Database
+from dotenv import load_dotenv
 import os
 import json
 import ast
-from datetime import datetime
+import math
+import secrets
+from datetime import datetime, timedelta
 from functools import wraps
 import subprocess
 import re
@@ -13,12 +17,20 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from io import BytesIO
 
+# Load environment variables from .env file
+load_dotenv()
+
 try:
     from radon.complexity import cc_visit
     from radon.metrics import mi_visit
 except Exception:
     cc_visit = None
     mi_visit = None
+
+try:
+    import javalang
+except Exception:
+    javalang = None
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', '0b1443b6ace6b17afde0079911ec829595fae544471a0cb248cde4f3666aa94c')
@@ -27,6 +39,23 @@ app.secret_key = os.environ.get('SECRET_KEY', '0b1443b6ace6b17afde0079911ec82959
 UPLOAD_FOLDER = 'uploads'
 ALLOWED_EXTENSIONS = {'py','java','js','css','html'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+# Email configuration (update with your email credentials)
+app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
+app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587))
+app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', 'True').lower() in ['true', '1', 'yes']
+app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER', 'noreply@codeinsight.com')
+app.config['MAIL_ASCII_ATTACHMENTS'] = True
+app.config['MAIL_SUPPRESS_SEND'] = False  # Make sure emails are actually sent
+
+# Print email configuration for debugging
+print(f"Email Config: Server={app.config['MAIL_SERVER']}, Port={app.config['MAIL_PORT']}, TLS={app.config['MAIL_USE_TLS']}, Username={app.config['MAIL_USERNAME']}")
+
+# Initialize Flask-Mail with app
+mail = Mail()
+mail.init_app(app)
 
 # Database configuration
 try:
@@ -528,8 +557,9 @@ class CodeAnalyzer:
         """Check code style using pylint with stricter rules"""
         issues = []
         try:
+            absolute_filepath = os.path.abspath(filepath)
             result = subprocess.run(
-                ['pylint', filepath, '--disable=all', '--enable=syntax-error,basic,unused-import,unused-variable,undefined-variable,missing-docstring,invalid-name,line-too-long,too-many-lines,too-many-branches,too-many-statements,too-many-locals,too-few-public-methods,bad-indentation,superfluous-parens,missing-final-newline,trailing-whitespace,trailing-newlines,wrong-import-position,ungrouped-imports,broad-except,consider-using-with,unnecessary-pass,duplicate-code'],
+                ['pylint', absolute_filepath, '--disable=all', '--enable=syntax-error,basic,unused-import,unused-variable,undefined-variable,missing-docstring,invalid-name,line-too-long,too-many-lines,too-many-branches,too-many-statements,too-many-locals,too-few-public-methods,bad-indentation,superfluous-parens,missing-final-newline,trailing-whitespace,trailing-newlines,wrong-import-position,ungrouped-imports,broad-except,consider-using-with,unnecessary-pass,duplicate-code'],
                 capture_output=True,
                 text=True,
                 timeout=60
@@ -674,8 +704,115 @@ class CodeAnalyzer:
             return {'total_lines': 0, 'code_lines': 0, 'functions': 0, 'classes': 0, 'error': str(e)}
     
     @staticmethod
+    def check_python_semantic_quality(filepath):
+        """Detect semantic/quality issues in Python code that pylint misses"""
+        issues = []
+        try:
+            with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+                code = f.read()
+            
+            lines = code.split('\n')
+            
+            # Parse AST for accurate analysis
+            try:
+                tree = ast.parse(code)
+            except:
+                return issues
+            
+            # Issue 1: Single-letter variable names (except loop counters i, j, k in small scopes)
+            for node in ast.walk(tree):
+                if isinstance(node, ast.FunctionDef):
+                    for child in ast.walk(node):
+                        if isinstance(child, ast.Name) and len(child.id) == 1 and child.id not in ['_']:
+                            # Check if it's in a loop (harder to detect perfectly, so flag all single letters)
+                            if child.id not in ['i', 'j', 'k', 'x', 'y', 'z']:
+                                issues.append(f"W0001: Poor naming: Variable '{child.id}' is too vague (line ~{child.lineno or '?'})")
+                elif isinstance(node, ast.Assign):
+                    for target in node.targets:
+                        if isinstance(target, ast.Name) and len(target.id) == 1 and target.id not in ['_']:
+                            if target.id not in ['i', 'j', 'k', 'x', 'y', 'z']:
+                                issues.append(f"W0001: Poor naming: Variable '{target.id}' is too vague")
+            
+            # Issue 2: Missing docstrings in functions and classes
+            for node in ast.walk(tree):
+                if isinstance(node, (ast.FunctionDef, ast.ClassDef)):
+                    if not ast.get_docstring(node):
+                        node_type = 'function' if isinstance(node, ast.FunctionDef) else 'class'
+                        if not node.name.startswith('_'):  # Skip private/magic methods
+                            issues.append(f"W0002: Missing docstring for {node_type} '{node.name}'")
+            
+            # Issue 3: Inefficient patterns
+            # 3a. Linear search in loop (O(n) when could be O(1) with set/dict)
+            for node in ast.walk(tree):
+                if isinstance(node, ast.For):
+                    # Check for "in list" inside loop
+                    for child in ast.walk(node):
+                        if isinstance(child, ast.Compare):
+                            for op in child.ops:
+                                if isinstance(op, ast.In):
+                                    # Likely inefficient if comparing against a list in loop
+                                    issues.append(f"W0003: Inefficient: Linear search in loop (use set for O(1) lookup)")
+                                    break
+            
+            # 3b. Brute force prime checking (like in demobad_1.py)
+            for line_no, line in enumerate(lines, 1):
+                # Check for naive primality test or fibonacci
+                if re.search(r'\bwhile\s*\(\s*\w+\s*<\s*\w+\s*\):', line):
+                    if any(keyword in '\n'.join(lines[max(0, line_no-5):line_no]) for keyword in ['%', 'prime', 'fib']):
+                        issues.append(f"W0004: Inefficient algorithm: Consider optimizing loop bounds or using better algorithms")
+            
+            # 3c. String concatenation in loops
+            for line_no, line in enumerate(lines, 1):
+                if '+=' in line and '"' in line or "'" in line:
+                    if any(loop in '\n'.join(lines[max(0, line_no-5):line_no]) for loop in ['for ', 'while ']):
+                        issues.append(f"W0005: Performance: String concatenation in loop (use list + join())")
+            
+            # Issue 4: No error handling (try/except ratio)
+            has_try_except = any(isinstance(node, ast.Try) for node in ast.walk(tree))
+            func_count = len([n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)])
+            if func_count > 3 and not has_try_except:
+                issues.append(f"W0006: Best practice: No error handling found in code with multiple functions")
+            
+            # Issue 5: Code organization - all code at module level (bad practice)
+            module_level_code = sum(1 for node in tree.body if not isinstance(node, (ast.FunctionDef, ast.ClassDef, ast.Import, ast.ImportFrom)))
+            if module_level_code > 5:
+                issues.append(f"W0007: Organization: Too much code at module level - consider organizing into functions")
+            
+            # Issue 6: Unused parameters
+            for node in ast.walk(tree):
+                if isinstance(node, ast.FunctionDef):
+                    param_names = {arg.arg for arg in node.args.args}
+                    used_names = {n.id for n in ast.walk(node) if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Load)}
+                    for param in param_names:
+                        if param not in used_names and not param.startswith('_'):
+                            issues.append(f"W0008: Unused parameter '{param}' in function '{node.name}'")
+            
+            # Deduplicate and return
+            return list(dict.fromkeys(issues[:15]))  # Limit to 15 unique issues
+            
+        except Exception as e:
+            return [f"Semantic analysis error: {str(e)}"]
+    
+    @staticmethod
     def analyze(filepath):
         """Complete code analysis with language detection"""
+        # Check if file is empty or contains only whitespace
+        try:
+            with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+                content = f.read().strip()
+            
+            if not content:
+                # Return early for empty files with critical warning
+                return {
+                    'syntax_issues': ['CRITICAL: File is empty - no code to analyze'],
+                    'style_issues': ['CRITICAL: Empty file - no actual implementation'],
+                    'complexity': 0,
+                    'maintainability': 0,
+                    'metrics': {'total_lines': 0, 'code_lines': 0, 'functions': 0, 'classes': 0}
+                }
+        except Exception:
+            pass  # Continue with normal analysis if read fails
+        
         language = CodeAnalyzer.get_file_language(filepath)
         
         if language == 'java':
@@ -688,10 +825,12 @@ class CodeAnalyzer:
                 'metrics': CodeAnalyzer.get_java_metrics(filepath)
             }
         else:
-            # Python analysis (default)
+            # Python analysis with semantic quality checks
+            style_issues = CodeAnalyzer.check_code_style(filepath)
+            semantic_issues = CodeAnalyzer.check_python_semantic_quality(filepath)
             analysis = {
                 'syntax_issues': CodeAnalyzer.check_syntax(filepath),
-                'style_issues': CodeAnalyzer.check_code_style(filepath),
+                'style_issues': style_issues + semantic_issues,  # Combine both types
                 'complexity': CodeAnalyzer.calculate_complexity(filepath),
                 'maintainability': CodeAnalyzer.calculate_maintainability(filepath),
                 'metrics': CodeAnalyzer.get_code_metrics(filepath)
@@ -707,6 +846,7 @@ def categorize_issues(issues, language='python'):
         'Naming': [],
         'Documentation': [],
         'Logic': [],
+        'Quality': [],
         'Other': []
     }
 
@@ -724,14 +864,17 @@ def categorize_issues(issues, language='python'):
             else:
                 categories['Other'].append(issue)
         else:
+            # Python-specific categorization
             if any(tag in key for tag in ['bad-indentation', 'trailing-whitespace', 'missing-final-newline', 'line-too-long', 'superfluous-parens', 'wrong-import-position', 'ungrouped-imports']):
                 categories['Formatting'].append(issue)
-            elif 'invalid-name' in key:
+            elif 'invalid-name' in key or 'w0001' in key or 'poor naming' in key:
                 categories['Naming'].append(issue)
-            elif any(tag in key for tag in ['missing-module-docstring', 'missing-function-docstring', 'missing-class-docstring']):
+            elif 'missing' in key and 'docstring' in key or 'w0002' in key:
                 categories['Documentation'].append(issue)
             elif any(tag in key for tag in ['unused-import', 'unused-variable', 'undefined-variable', 'broad-except', 'too-many-branches', 'too-many-statements', 'too-many-locals', 'unused-argument', 'redefined-outer-name']):
                 categories['Logic'].append(issue)
+            elif any(tag in key for tag in ['w000', 'inefficient', 'best practice', 'organization', 'performance', 'unused parameter']):
+                categories['Quality'].append(issue)
             else:
                 categories['Other'].append(issue)
 
@@ -771,12 +914,26 @@ class ScoreCalculator:
             else:
                 style_score = 10
         else:
-            # Python path: parse pylint categories (E/F severe, W medium, C/R minor).
+            # Python path: parse pylint categories (E/F severe, W medium, C/R minor) + semantic issues
             py_error_count = 0
             py_warning_count = 0
             py_minor_count = 0
+            semantic_issue_count = 0
+            naming_issue_count = 0
+            doc_issue_count = 0
 
             for issue in style_issues:
+                # Count semantic quality issues separately
+                if any(code in issue for code in ['W000', 'w000', 'Poor naming', 'poor naming', 'Missing docstring', 'missing docstring', 'Inefficient', 'inefficient']):
+                    if 'poor naming' in issue.lower() or 'w0001' in issue.lower():
+                        naming_issue_count += 1
+                    elif 'missing docstring' in issue.lower() or 'w0002' in issue.lower():
+                        doc_issue_count += 1
+                    else:
+                        semantic_issue_count += 1
+                    py_warning_count += 1
+                    continue
+                
                 m = re.search(r':\s*([A-Z])\d{4}:', issue)
                 if not m:
                     py_warning_count += 1
@@ -790,24 +947,45 @@ class ScoreCalculator:
                     py_minor_count += 1
 
             total_style_issues = py_error_count + py_warning_count + py_minor_count
+            
+            # STRICTER scoring when semantic quality issues present
             if py_error_count == 0 and py_warning_count == 0 and py_minor_count == 0:
                 style_score = 50
-            elif py_error_count == 0 and py_warning_count <= 2 and py_minor_count <= 3:
-                style_score = 45
-            elif py_error_count == 0 and py_warning_count <= 4 and py_minor_count <= 8:
-                style_score = 32
-            elif py_error_count <= 1 and py_warning_count <= 6:
-                style_score = 22
-            elif py_error_count <= 3:
-                style_score = 12
+            elif py_error_count == 0 and naming_issue_count == 0 and doc_issue_count == 0 and semantic_issue_count == 0:
+                # No errors and no semantic issues
+                if py_warning_count <= 2 and py_minor_count <= 3:
+                    style_score = 45
+                elif py_warning_count <= 4 and py_minor_count <= 8:
+                    style_score = 32
+                elif py_warning_count <= 6:
+                    style_score = 22
+                else:
+                    style_score = 12
             else:
-                style_score = 5
+                # Apply HEAVY penalties for semantic quality issues (naming, docs, efficiency)
+                style_score = 50
+                
+                # Penalty for poor naming (most visible to users)
+                style_score -= min(15, naming_issue_count * 3)
+                
+                # Penalty for missing documentation
+                style_score -= min(10, doc_issue_count * 2)
+                
+                # Penalty for inefficiency/best practices
+                style_score -= min(10, semantic_issue_count * 2)
+                
+                # Penalty for pylint warnings/errors
+                style_score -= min(15, (py_error_count * 5) + (py_warning_count * 1))
+                
+                style_score = max(5, style_score)  # Min possible: 5
 
             # Volume penalty: many issues should not retain a high style score.
-            if total_style_issues >= 15:
-                style_score = min(style_score, 10)
+            if total_style_issues >= 20:
+                style_score = min(style_score, 8)
+            elif total_style_issues >= 15:
+                style_score = min(style_score, 15)
             elif total_style_issues >= 10:
-                style_score = min(style_score, 20)
+                style_score = min(style_score, 25)
         
         # Complexity Score (0-25) - REWARD simple code
         complexity = analysis['complexity']
@@ -842,6 +1020,19 @@ class ScoreCalculator:
             maintainability_score = 0   # Very poor
 
         # Syntax errors should heavily impact overall scoring.
+        # CRITICAL: Empty files should get 0 (no actual code to analyze)
+        if 'File is empty' in str(analysis.get('syntax_issues', [])):
+            return {
+                'style_score': 0,
+                'complexity_score': 0,
+                'maintainability_score': 0,
+                'style_pct': 0,
+                'complexity_pct': 0,
+                'maintainability_pct': 0,
+                'total_score': 0,
+                'technical_debt_hours': 0.0
+            }
+        
         if syntax_issue_count > 0:
             style_score = min(style_score, 5)
             complexity_score = min(complexity_score, 5)
@@ -973,11 +1164,84 @@ class ScoreCalculator:
 
         return suggestions
 
+
+def get_admin_dashboard_context(audit_limit=5):
+    """Build reusable admin dashboard data."""
+    total_users = db.get_total_users()
+    active_subscriptions = db.get_active_subscriptions()
+    analyses_today = db.get_analyses_today()
+    raw_audits = db.get_recent_audits(limit=audit_limit)
+    recent_audits = []
+
+    def build_weekday_series(table_name, date_column='created_at', extra_where='', extra_params=()):
+        """Return rolling last-7-days counts ending today."""
+        if not db:
+            return [], 0
+
+        conn = db.get_connection()
+        if not conn:
+            return [], 0
+
+        cursor = conn.cursor()
+        series = []
+        try:
+            today = datetime.now().date()
+            for days_ago in range(6, -1, -1):
+                day_start = today - timedelta(days=days_ago)
+                day_end = day_start + timedelta(days=1)
+                sql = f"SELECT COUNT(*) FROM {table_name} WHERE {date_column} >= %s AND {date_column} < %s"
+                if extra_where:
+                    sql += f" AND {extra_where}"
+
+                cursor.execute(sql, (day_start, day_end, *extra_params))
+                result = cursor.fetchone()
+                count = int(result[0]) if result and result[0] is not None else 0
+                series.append({'label': day_start.strftime('%a'), 'count': count})
+        finally:
+            cursor.close()
+            conn.close()
+
+        return series, max((item['count'] for item in series), default=0)
+
+    user_growth_trend, user_growth_max = build_weekday_series('users')
+    subscription_trend, subscription_trend_max = build_weekday_series(
+        'users',
+        extra_where="LOWER(COALESCE(plan, '')) != 'free'"
+    )
+    analysis_trend, analysis_trend_max = build_weekday_series('analysis_results')
+
+    for row in raw_audits:
+        filename, score, complexity, maintainability, issues, created_at = row
+        result_text = f"Score: {score}" if score is not None else 'No Result'
+        recent_audits.append({
+            'filename': filename,
+            'engine': 'CodeInsight AI',
+            'status': 'Completed',
+            'time': f"{(datetime.now() - created_at).seconds // 60} min ago" if created_at else 'Unknown',
+            'result_text': result_text
+        })
+
+    return {
+        'total_users': total_users,
+        'active_subscriptions': active_subscriptions,
+        'analyses_today': analyses_today,
+        'recent_audits': recent_audits,
+        'user_growth_trend': user_growth_trend,
+        'user_growth_max': user_growth_max,
+        'subscription_trend': subscription_trend,
+        'subscription_trend_max': subscription_trend_max,
+        'analysis_trend': analysis_trend,
+        'analysis_trend_max': analysis_trend_max,
+    }
+
 # Routes
 @app.route('/')
 def index():
     """Home page"""
     if 'user_id' in session:
+        user = db.get_user_by_id(session['user_id']) if db else None
+        if user and user[4] == 'admin':
+            return redirect(url_for('admin_dashboard'))
         return redirect(url_for('dashboard'))
     return redirect(url_for('login'))
 
@@ -1035,6 +1299,12 @@ def login():
     """User login"""
     if not db:
         return jsonify({'error': 'Database not available. Please configure MySQL.'}), 503
+
+    if request.method == 'GET' and 'user_id' in session:
+        user = db.get_user_by_id(session['user_id'])
+        if user and user[4] == 'admin':
+            return redirect(url_for('admin_dashboard'))
+        return redirect(url_for('dashboard'))
     
     if request.method == 'POST':
         # Support both JSON and form-encoded requests
@@ -1051,12 +1321,22 @@ def login():
         
         try:
             user = db.get_user_by_email(email)
+            if user and user[8] == 'blocked':
+                error_msg = 'Your account has been blocked. Please contact administrator.'
+                if request.is_json:
+                    return jsonify({'error': error_msg}), 403
+                return render_template('login.html', error=error_msg)
+
             if user and db.verify_password(user[3], password):
                 session['user_id'] = user[0]
                 session['user_name'] = user[1]
                 if request.is_json:
                     return jsonify({'success': True}), 200
-                return redirect(url_for('dashboard'))
+                # Redirect based on role
+                if user[5] == 'admin':  # role is at index 5
+                    return redirect(url_for('admin_dashboard'))
+                else:
+                    return redirect(url_for('dashboard'))
             else:
                 error_msg = 'Invalid email or password'
                 if request.is_json:
@@ -1076,6 +1356,144 @@ def logout():
     session.clear()
     return redirect(url_for('login'))
 
+@app.route('/test_email')
+def test_email():
+    """Test email sending (for debugging)"""
+    try:
+        test_msg = Message(
+            subject='Test Email - CodeInsight',
+            recipients=['meetlathidadiya786@gmail.com'],
+            body='This is a test email from CodeInsight.'
+        )
+        mail.send(test_msg)
+        return jsonify({'success': True, 'message': 'Test email sent successfully!'})
+    except Exception as e:
+        print(f"\n✗ Test email error: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/forgot_password', methods=['GET', 'POST'])
+def forgot_password():
+    """Handle forgot password request"""
+    if not db:
+        return jsonify({'error': 'Database not available. Please configure MySQL.'}), 503
+    
+    if request.method == 'POST':
+        email = request.form.get('email')
+        
+        if not email:
+            return render_template('forgot_password.html', error='Email is required')
+        
+        user = db.get_user_by_email(email)
+        if not user:
+            # Don't reveal if email exists (security best practice)
+            return render_template('forgot_password.html', success='If an account exists with that email, a reset link will be sent.')
+        
+        try:
+            # Generate secure reset token
+            reset_token = secrets.token_urlsafe(32)
+            
+            # Store token in database
+            if db.generate_reset_token(email, reset_token):
+                # Build reset URL
+                reset_url = url_for('reset_password', token=reset_token, _external=True)
+                
+                # Check if email is properly configured
+                if not app.config['MAIL_USERNAME'] or not app.config['MAIL_PASSWORD']:
+                    print(f"\n⚠️ Email credentials not configured!")
+                    print(f"Testing mode activated - showing reset link on page")
+                    print(f"Reset Link: {reset_url}\n")
+                    return render_template('forgot_password.html', 
+                                         success='Password reset link generated! (Testing Mode)',
+                                         testing_reset_url=reset_url,
+                                         testing_mode=True)
+                
+                # Send reset email
+                msg = Message(
+                    subject='Password Reset Request - CodeInsight',
+                    recipients=[email],
+                    html=f"""
+                    <h2>Password Reset Request</h2>
+                    <p>Hi {user[1]},</p>
+                    <p>We received a request to reset your password. Click the link below to proceed:</p>
+                    <p><a href="{reset_url}" style="background-color: #6366f1; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Reset Password</a></p>
+                    <p>This link will expire in 1 hour.</p>
+                    <p>If you didn't request this, ignore this email.</p>
+                    <p>Best regards,<br>CodeInsight Team</p>
+                    """
+                )
+                print(f"\n🔍 DEBUG: About to send email...")
+                print(f"  Recipients: {email}")
+                print(f"  Subject: {msg.subject}")
+                print(f"  Mail object: {mail}")
+                print(f"  App context: {hasattr(app, 'app_context')}")
+                try:
+                    mail.send(msg)
+                    print(f"✓ Password reset email sent to {email}")
+                    return render_template('forgot_password.html', success='If an account exists with that email, a reset link will be sent.')
+                except Exception as e:
+                    print(f"\n✗ Email sending error: {type(e).__name__}: {str(e)}")
+                    print(f"  Server: {app.config['MAIL_SERVER']}")
+                    print(f"  Port: {app.config['MAIL_PORT']}")
+                    print(f"  TLS: {app.config['MAIL_USE_TLS']}")
+                    print(f"  Username: {app.config['MAIL_USERNAME']}")
+                    import traceback
+                    traceback.print_exc()
+                    print()
+                    
+                    # Fallback to testing mode if email fails
+                    print(f"⚠️ Email sending failed! Activating testing mode...")
+                    print(f"Reset Link: {reset_url}\n")
+                    return render_template('forgot_password.html', 
+                                         error='Email service unavailable. Showing reset link below (Testing Mode).',
+                                         testing_reset_url=reset_url,
+                                         testing_mode=True)
+        except Exception as e:
+            print(f"\n✗ Password reset error: {type(e).__name__}: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            print()
+            return render_template('forgot_password.html', error='An error occurred. Please try again.')
+    
+    return render_template('forgot_password.html')
+
+@app.route('/reset_password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    """Handle password reset"""
+    if not db:
+        return jsonify({'error': 'Database not available. Please configure MySQL.'}), 503
+    
+    # Verify token
+    user = db.verify_reset_token(token)
+    if not user:
+        return render_template('reset_password.html', error='Invalid or expired reset link'), 400
+    
+    if request.method == 'POST':
+        password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
+        
+        if not password or not confirm_password:
+            return render_template('reset_password.html', error='All fields are required', token=token)
+        
+        if password != confirm_password:
+            return render_template('reset_password.html', error='Passwords do not match', token=token)
+        
+        if len(password) < 8:
+            return render_template('reset_password.html', error='Password must be at least 8 characters', token=token)
+        
+        try:
+            # Reset password in database
+            if db.reset_password(user[2], password):
+                return render_template('reset_password.html', success='Password reset successful! Redirecting to login...'), 200
+            else:
+                return render_template('reset_password.html', error='Failed to reset password. Please try again.', token=token)
+        except Exception as e:
+            print(f"Password reset error: {e}")
+            return render_template('reset_password.html', error='An error occurred. Please try again.', token=token)
+    
+    return render_template('reset_password.html', token=token)
+
 @app.route('/dashboard')
 @login_required
 def dashboard():
@@ -1093,6 +1511,245 @@ def dashboard():
     except Exception as e:
         return jsonify({'error': f'Dashboard error: {str(e)}'}), 500   
     
+
+@app.route('/admin_dashboard')
+@login_required
+def admin_dashboard():
+    """Admin dashboard"""
+    if not db:
+        return jsonify({'error': 'Database not available'}), 503
+    
+    try:
+        user_id = session.get('user_id')
+        user = db.get_user_by_id(user_id)
+        if not user or user[4] != 'admin':  # role is at index 4 now
+            return redirect(url_for('dashboard'))
+        context = get_admin_dashboard_context(audit_limit=5)
+        
+        return render_template(
+            'admin/admin_dashboard.html',
+            user=user,
+            **context
+        )
+        
+    except Exception as e:
+        return jsonify({'error': f'Admin dashboard error: {str(e)}'}), 500
+
+
+@app.route('/admin_audits')
+@login_required
+def admin_audits():
+    """View all recent code audits in a dedicated table."""
+    if not db:
+        return jsonify({'error': 'Database not available'}), 503
+
+    try:
+        user_id = session.get('user_id')
+        user = db.get_user_by_id(user_id)
+        if not user or user[4] != 'admin':
+            return redirect(url_for('dashboard'))
+
+        context = get_admin_dashboard_context(audit_limit=1000)
+        return render_template(
+            'admin/admin_audits.html',
+            user=user,
+            audits=context['recent_audits'],
+            total_users=context['total_users'],
+            active_subscriptions=context['active_subscriptions'],
+            analyses_today=context['analyses_today']
+        )
+    except Exception as e:
+        return jsonify({'error': f'Admin audits error: {str(e)}'}), 500
+
+
+@app.route('/admin_user_management')
+@login_required
+def admin_user_management():
+    """View users in admin user management."""
+    if not db:
+        return jsonify({'error': 'Database not available'}), 503
+
+    try:
+        user_id = session.get('user_id')
+        user = db.get_user_by_id(user_id)
+        if not user or user[4] != 'admin':
+            return redirect(url_for('dashboard'))
+
+        context = get_admin_dashboard_context(audit_limit=5)
+        users = db.get_users_for_admin(include_admins=True)
+
+        search_query = (request.args.get('q') or '').strip().lower()
+        plan_filter = (request.args.get('plan') or 'all').strip().lower()
+        role_filter = (request.args.get('role') or 'all').strip().lower()
+        status_filter = (request.args.get('status') or 'all').strip().lower()
+
+        filtered_users = []
+        for item in users:
+            user_id, name, email, plan, role, account_status, created_at = item
+            norm_name = (name or '').lower()
+            norm_email = (email or '').lower()
+            norm_plan = (plan or 'free').lower()
+            norm_role = (role or 'user').lower()
+            norm_status = (account_status or 'active').lower()
+
+            if search_query:
+                if search_query not in norm_name and search_query not in norm_email and search_query not in str(user_id):
+                    continue
+
+            if plan_filter != 'all' and norm_plan != plan_filter:
+                continue
+
+            if role_filter == 'admin' and norm_role != 'admin':
+                continue
+            if role_filter == 'user' and norm_role == 'admin':
+                continue
+
+            if status_filter != 'all' and norm_status != status_filter:
+                continue
+
+            filtered_users.append(item)
+
+        week_start = datetime.now().date() - timedelta(days=6)
+        new_users_week = sum(1 for item in users if item[6] and item[6].date() >= week_start)
+
+        return render_template(
+            'admin/admin_user_management.html',
+            user=user,
+            users=filtered_users,
+            total_users=context['total_users'],
+            active_subscriptions=context['active_subscriptions'],
+            analyses_today=context['analyses_today'],
+            new_users_week=new_users_week,
+            filters={
+                'q': search_query,
+                'plan': plan_filter,
+                'role': role_filter,
+                'status': status_filter,
+            }
+        )
+    except Exception as e:
+        return jsonify({'error': f'Admin user management error: {str(e)}'}), 500
+
+
+@app.route('/admin_users/<int:target_user_id>/block', methods=['POST'])
+@login_required
+def admin_block_user(target_user_id):
+    """Block a user account from logging in."""
+    if not db:
+        return jsonify({'error': 'Database not available'}), 503
+
+    admin_user = db.get_user_by_id(session.get('user_id'))
+    if not admin_user or admin_user[4] != 'admin':
+        return redirect(url_for('dashboard'))
+
+    if target_user_id == admin_user[0]:
+        return redirect(url_for('admin_user_management'))
+
+    target_user = db.get_user_by_id(target_user_id)
+    if not target_user or target_user[4] == 'admin':
+        return redirect(url_for('admin_user_management'))
+
+    db.set_user_block_status(target_user_id, blocked=True)
+    return redirect(url_for('admin_user_management'))
+
+
+@app.route('/admin_users/<int:target_user_id>/unblock', methods=['POST'])
+@login_required
+def admin_unblock_user(target_user_id):
+    """Unblock a user account and restore login access."""
+    if not db:
+        return jsonify({'error': 'Database not available'}), 503
+
+    admin_user = db.get_user_by_id(session.get('user_id'))
+    if not admin_user or admin_user[4] != 'admin':
+        return redirect(url_for('dashboard'))
+
+    target_user = db.get_user_by_id(target_user_id)
+    if not target_user or target_user[4] == 'admin':
+        return redirect(url_for('admin_user_management'))
+
+    db.set_user_block_status(target_user_id, blocked=False)
+    return redirect(url_for('admin_user_management'))
+
+
+@app.route('/admin_report')
+@login_required
+def admin_report():
+    """Download an admin PDF summary report."""
+    if not db:
+        return jsonify({'error': 'Database not available'}), 503
+
+    try:
+        user_id = session.get('user_id')
+        user = db.get_user_by_id(user_id)
+        if not user or user[4] != 'admin':
+            return redirect(url_for('dashboard'))
+
+        context = get_admin_dashboard_context(audit_limit=20)
+
+        pdf_buffer = BytesIO()
+        doc = SimpleDocTemplate(pdf_buffer, pagesize=letter)
+        elements = []
+        styles = getSampleStyleSheet()
+
+        elements.append(Paragraph('CodeInsight Admin Report', styles['Title']))
+        elements.append(Spacer(1, 12))
+        elements.append(Paragraph(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", styles['Normal']))
+        elements.append(Spacer(1, 12))
+
+        summary_data = [
+            ['Metric', 'Value'],
+            ['Total Users', str(context['total_users'])],
+            ['Active Subscriptions', str(context['active_subscriptions'])],
+            ['Analyses Today', str(context['analyses_today'])],
+            ['Recent Audits Shown', str(len(context['recent_audits']))],
+        ]
+        summary_table = Table(summary_data, colWidths=[200, 250])
+        summary_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4338ca')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#f8fafc')),
+            ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ]))
+        elements.append(summary_table)
+        elements.append(Spacer(1, 18))
+
+        elements.append(Paragraph('Recent Code Audits', styles['Heading2']))
+        audit_rows = [['Repository', 'Engine', 'Status', 'Time', 'Result']]
+        for audit in context['recent_audits']:
+            audit_rows.append([
+                audit['filename'],
+                audit['engine'],
+                audit['status'],
+                audit['time'],
+                audit['result_text'],
+            ])
+
+        audit_table = Table(audit_rows, colWidths=[120, 90, 70, 80, 160], repeatRows=1)
+        audit_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0f172a')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+        ]))
+        elements.append(audit_table)
+
+        doc.build(elements)
+        pdf_buffer.seek(0)
+
+        return pdf_buffer.getvalue(), 200, {
+            'Content-Type': 'application/pdf',
+            'Content-Disposition': 'attachment; filename=codeinsight_admin_report.pdf'
+        }
+    except Exception as e:
+        return jsonify({'error': f'Admin report error: {str(e)}'}), 500
+
 
 @app.route('/upload', methods=['GET', 'POST'])
 @login_required
@@ -1131,16 +1788,17 @@ def upload():
         try:
             # Save file
             user_id = session.get('user_id')
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_')
-            filename = timestamp + file.filename
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            original_filename = file.filename
+            file_ext = original_filename.rsplit('.', 1)[1].lower()
+            stored_filename = f"{secrets.token_hex(16)}.{file_ext}"
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], stored_filename)
             file.save(filepath)
             
             # Record in database
-            file_id = db.upload_file(user_id, filename)
+            file_id = db.upload_file(user_id, original_filename, stored_filename)
             
             if file_id:
-                return jsonify({'success': True, 'file_id': file_id, 'filename': file.filename}), 200
+                return jsonify({'success': True, 'file_id': file_id, 'filename': original_filename}), 200
             else:
                 return jsonify({'error': 'Failed to save file record'}), 400
         except Exception as e:
@@ -1166,7 +1824,8 @@ def analyze(file_id):
         if not file_info or file_info[1] != user_id:
             return jsonify({'error': 'Unauthorized'}), 403
         
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], file_info[2])
+        stored_filename = file_info[3] if len(file_info) > 3 and file_info[3] else file_info[2]
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], stored_filename)
         
         if not os.path.exists(filepath):
             return jsonify({'error': 'File not found'}), 404
@@ -1184,6 +1843,13 @@ def analyze(file_id):
 
             issues = analysis['syntax_issues'] + analysis['style_issues']
             categorized_issues = categorize_issues(issues, language)
+            
+            # Check for empty file warning
+            empty_file_message = None
+            for issue in analysis['syntax_issues']:
+                if 'File is empty' in issue:
+                    empty_file_message = "This file contains no code. Please upload a valid source file."
+                    break
         except Exception as e:
             print(f"Analysis error: {e}")
             return render_template('results.html', 
@@ -1230,6 +1896,7 @@ def analyze(file_id):
                              suggestions=suggestions,
                              scores=scores,
                              performance="Optimized" if analysis['complexity'] <= 5 else "Needs Optimization",
+                             empty_file_message=empty_file_message,
                              user=user))
         response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
         response.headers['Pragma'] = 'no-cache'
@@ -1588,8 +2255,8 @@ def settings():
                 # Handle removal first
                 if data.get('remove_avatar') == '1':
                     # Delete the old file from disk
-                    if user and user[5]:
-                        old_path = os.path.join(AVATAR_FOLDER, user[5])
+                    if user and user[6]:
+                        old_path = os.path.join(AVATAR_FOLDER, user[6])
                         if os.path.exists(old_path):
                             os.remove(old_path)
                     avatar_filename = ''  # empty string clears the DB column

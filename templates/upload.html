@@ -94,10 +94,13 @@
 <div class="flex items-center gap-6">
 <div class="hidden lg:flex items-center gap-2 text-slate-400 text-xs">
                 <div class="flex items-center gap-3">
-{% if user and user|length > 5 and user[5] %}
-<img src="{{ url_for('static', filename='avatars/' + user[5]) }}" alt="avatar" class="w-10 h-10 rounded-full border border-white/20"/>
+{% if user and user|length > 6 and user[6] %}
+<div class="w-10 h-10 rounded-full overflow-hidden border border-white/20 relative">
+<img src="{{ url_for('static', filename='avatars/' + user[6]) }}" alt="avatar" class="w-10 h-10 object-cover" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"/>
+<div class="w-10 h-10 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 items-center justify-center text-white text-sm font-bold hidden">{{ (user[1][0] if user and user[1] else 'U')|upper }}</div>
+</div>
 {% else %}
-<div class="w-10 h-10 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 flex items-center justify-center text-white text-sm font-bold">{{ user[1][0] if user else 'U' }}</div>
+<div class="w-10 h-10 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 flex items-center justify-center text-white text-sm font-bold">{{ (user[1][0] if user and user[1] else 'U')|upper }}</div>
 {% endif %}
 <span class="text-sm font-medium text-slate-300"><span class="text-white">{{ user[1] if user else 'User' }}</span>
 <span class="ml-2 px-2 py-0.5 bg-brand-purple/20 text-brand-purple text-[10px] font-bold rounded border border-brand-purple/40 uppercase tracking-tighter">{{ user[3] if user and user|length > 3 else 'Free' }}</span></span>

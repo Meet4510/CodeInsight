@@ -5,13 +5,17 @@ Change these settings before deploying to production
 """
 
 import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file if it exists
+load_dotenv()
 
 # Flask Configuration
 DEBUG = True  # Set to False in production
 TESTING = False
 
 # Secret key for session management
-SECRET_KEY = 'change-this-to-a-random-string-in-production'
+SECRET_KEY = os.getenv('SECRET_KEY', 'change-this-to-a-random-string-in-production')
 
 # Upload settings
 UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads')
@@ -23,6 +27,14 @@ DB_HOST = 'localhost'
 DB_USER = 'root'
 DB_PASSWORD = 'root'  # MySQL password 
 DB_NAME = 'code_reviewer'
+
+# Email Configuration (for Forgot Password feature)
+MAIL_SERVER = os.getenv('MAIL_SERVER', 'smtp.gmail.com')
+MAIL_PORT = int(os.getenv('MAIL_PORT', 587))
+MAIL_USE_TLS = os.getenv('MAIL_USE_TLS', True)
+MAIL_USERNAME = os.getenv('MAIL_USERNAME', '')
+MAIL_PASSWORD = os.getenv('MAIL_PASSWORD', '')
+MAIL_DEFAULT_SENDER = os.getenv('MAIL_DEFAULT_SENDER', 'meetlathidadiya786@gmail.com')
 
 # Code Analysis Settings
 ANALYSIS_TIMEOUT = 10  # seconds

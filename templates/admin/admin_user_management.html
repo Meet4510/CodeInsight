@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>CodeInsight | Dashboard</title>
+<link rel="stylesheet" href="about.css"/>
+<!-- Tailwind CSS CDN with plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Google Fonts: Inter -->
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              purple: '#6366f1',
+              blue: '#3b82f6',
+              dark: '#0f172a',
+            },
+            primary: '#6366f1',
+            'primary-container': '#4338ca',
+            'on-primary': '#ffffff',
+            'on-primary-container': '#e0e7ff',
+            secondary: '#38bdf8',
+            tertiary: '#14b8a6',
+            surface: '#0f172a',
+            'surface-container': '#1e293b',
+            'surface-container-low': '#111827',
+            'surface-container-high': '#334155',
+            'surface-container-lowest': '#020617',
+            'on-surface': '#f8fafc',
+            'on-surface-variant': '#94a3b8',
+            'outline-variant': '#334155'
+          }
+        }
+      }
+    }
+  </script>
+<style data-purpose="animated-background">
+    /* Animated mesh gradient background mimicking the provided screenshot style */
+    body {
+      background: linear-gradient(-45deg, #0f172a, #1e1b4b, #2e1065, #0f172a);
+      background-size: 400% 400%;
+      animation: gradient 15s ease infinite;
+      min-height: 100vh;
+      color: #f8fafc;
+    }
+
+    @keyframes gradient {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    /* Glassmorphism utility */
+    .glass-card {
+      background: rgba(255, 255, 255, 0.03);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    }
+
+    .glass-nav {
+      background: rgba(15, 23, 42, 0.7);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+  </style>
+<style data-purpose="ui-animations">
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-in {
+      animation: fadeIn 0.6s ease-out forwards;
+    }
+    .delay-1 { animation-delay: 0.1s; opacity: 0; }
+    .delay-2 { animation-delay: 0.2s; opacity: 0; }
+
+    /* Table row hover effect */
+    .table-row-hover:hover {
+      background: rgba(255, 255, 255, 0.05);
+      transition: background 0.3s ease;
+    }
+  </style>
+</head>
+<body class="font-sans antialiased">
+<!-- BEGIN: Navigation -->
+<nav class="glass-nav fixed top-0 w-full z-50">
+<div class="px-4 sm:px-6 lg:px-8">
+<div class="flex justify-between h-16 items-center">
+<!-- Logo Section -->
+<div class="flex items-center space-x-3">
+<div class="w-10 h-10 bg-gradient-to-br from-brand-purple to-brand-blue rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
+<svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<span class="text-xl font-bold tracking-tight text-white">CodeInsight</span>
+<!--<button class="hidden sm:flex items-center px-4 py-1.5 rounded-full text-xs font-bold bg-gradient-to-r from-amber-400 to-orange-500 text-slate-900 hover:shadow-[0_0_15px_rgba(251,191,36,0.5)] transition-all transform hover:scale-105 ml-4">UPGRADE PLAN</button>-->
+</div>
+<!-- Navigation Links -->
+<div class="flex items-center space-x-4 sm:space-x-8">
+<div class="flex items-center gap-3">
+{% if user and user|length > 6 and user[6] %}
+<div class="w-10 h-10 rounded-full overflow-hidden border border-white/20 relative">
+<img src="{{ url_for('static', filename='avatars/' + user[6]) }}" alt="avatar" class="w-10 h-10 object-cover" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"/>
+<div class="w-10 h-10 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 items-center justify-center text-white text-sm font-bold hidden">{{ (user[1][0] if user and user[1] else 'U')|upper }}</div>
+</div>
+{% else %}
+<div class="w-10 h-10 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 flex items-center justify-center text-white text-sm font-bold">{{ (user[1][0] if user and user[1] else 'U')|upper }}</div>
+{% endif %}
+<span class="text-sm font-medium text-slate-300">Welcome, <span class="text-white">{{ user[1] if user else 'User' }}</span><!--<span class="ml-2 px-2 py-0.5 bg-brand-purple/20 text-brand-purple text-[10px] font-bold rounded border border-brand-purple/40 uppercase tracking-tighter">{{ user_plan|default('Free') }}</span>--></span>
+</div>
+<a class="px-4 py-2 rounded-lg text-sm font-semibold bg-white/5 hover:bg-white/10 text-white border border-white/10 transition-all" href="{{ url_for('logout') }}">
+            Logout
+          </a>
+</div>
+</div>
+</div>
+</nav>
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-0 h-full w-64 z-40 bg-[#191b24] border-r border-white/5 flex flex-col h-full pt-20 pb-6">
+{% set current_page = request.endpoint %}
+<div class="flex-1 px-4 space-y-1">
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 {% if current_page == 'admin_dashboard' %}text-[#cdbdff] font-semibold bg-[#1d1f29] ml-2{% else %}text-slate-400 hover:text-white hover:bg-[#1d1f29]{% endif %}" href="{{ url_for('admin_dashboard') }}">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-['Inter'] text-sm">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 {% if current_page == 'admin_user_management' %}text-[#cdbdff] font-semibold bg-[#1d1f29] ml-2{% else %}text-slate-400 hover:text-white hover:bg-[#1d1f29]{% endif %}" href="{{ url_for('admin_user_management') }}">
+<span class="material-symbols-outlined">group</span>
+<span class="font-['Inter'] text-sm">User Management</span>
+</a>
+<a class="flex items-center gap-3 text-slate-400 hover:text-white px-4 py-3 hover:bg-[#1d1f29] rounded-lg transition-all duration-200" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-['Inter'] text-sm">System Settings</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="ml-64 pt-24 px-8 pb-12">
+<!-- Header & Summary Section -->
+<header class="mb-12 flex flex-col md:flex-row justify-between items-end gap-6">
+<div class="max-w-2xl">
+<h1 class="text-4xl font-['Space_Grotesk'] font-bold text-on-surface mb-2">User Management</h1>
+<p class="text-on-surface-variant">Monitor and manage users with accurate live data.</p>
+</div>
+<div class="flex gap-4">
+<!-- Summary Card 1 -->
+<div class="surface-container-low glass-panel glow-border px-6 py-4 rounded-xl flex items-center gap-4 min-w-[200px]">
+<div class="w-12 h-12 rounded-full bg-secondary-container/20 flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined">person_add</span>
+</div>
+<div>
+<p class="text-xs text-on-surface-variant font-medium uppercase tracking-wider">New Users (7 days)</p>
+<h4 class="text-2xl font-bold font-['Space_Grotesk'] text-on-surface">{{ new_users_week or 0 }}</h4>
+</div>
+</div>
+<!-- Summary Card 2 -->
+<div class="surface-container-low glass-panel glow-border px-6 py-4 rounded-xl flex items-center gap-4 min-w-[200px]">
+<div class="w-12 h-12 rounded-full bg-tertiary-container/20 flex items-center justify-center text-tertiary">
+<span class="material-symbols-outlined">workspace_premium</span>
+</div>
+<div>
+<p class="text-xs text-on-surface-variant font-medium uppercase tracking-wider">Active Subscriptions</p>
+<h4 class="text-2xl font-bold font-['Space_Grotesk'] text-on-surface">{{ active_subscriptions or 0 }}</h4>
+</div>
+</div>
+</div>
+</header>
+<!-- Search & Filter Controls -->
+<form method="GET" action="{{ url_for('admin_user_management') }}" class="mb-6 flex flex-wrap gap-4 items-center">
+<div class="flex-1 min-w-[300px] relative group">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline">search</span>
+<input class="w-full bg-surface-container-lowest border border-outline-variant/15 rounded-xl py-3 pl-12 pr-4 text-on-surface focus:outline-none focus:border-primary/50 transition-all" placeholder="Search by username, email, or ID..." type="text" name="q" value="{{ filters.q if filters else '' }}"/>
+</div>
+<div class="flex gap-3">
+<div class="relative">
+<select name="plan" class="appearance-none bg-surface-container border border-outline-variant/15 rounded-xl py-3 px-6 pr-10 text-on-surface cursor-pointer focus:outline-none focus:border-primary/50 transition-all">
+<option value="all" {% if not filters or filters.plan == 'all' %}selected{% endif %}>All Plans</option>
+<option value="free" {% if filters and filters.plan == 'free' %}selected{% endif %}>Free</option>
+<option value="pro" {% if filters and filters.plan == 'pro' %}selected{% endif %}>Pro</option>
+<option value="premium" {% if filters and filters.plan == 'premium' %}selected{% endif %}>Premium</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-outline text-sm">expand_more</span>
+</div>
+<div class="relative">
+<select name="role" class="appearance-none bg-surface-container border border-outline-variant/15 rounded-xl py-3 px-6 pr-10 text-on-surface cursor-pointer focus:outline-none focus:border-primary/50 transition-all">
+<option value="all" {% if not filters or filters.role == 'all' %}selected{% endif %}>All Roles</option>
+<option value="admin" {% if filters and filters.role == 'admin' %}selected{% endif %}>Admin</option>
+<option value="user" {% if filters and filters.role == 'user' %}selected{% endif %}>User</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-outline text-sm">expand_more</span>
+</div>
+<div class="relative">
+<select name="status" class="appearance-none bg-surface-container border border-outline-variant/15 rounded-xl py-3 px-6 pr-10 text-on-surface cursor-pointer focus:outline-none focus:border-primary/50 transition-all">
+<option value="all" {% if not filters or filters.status == 'all' %}selected{% endif %}>All Status</option>
+<option value="active" {% if filters and filters.status == 'active' %}selected{% endif %}>Active</option>
+<option value="blocked" {% if filters and filters.status == 'blocked' %}selected{% endif %}>Blocked</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-outline text-sm">expand_more</span>
+</div>
+<button type="submit" class="bg-surface-container-highest px-4 py-3 rounded-xl flex items-center gap-2 hover:bg-surface-bright transition-colors">
+<span class="material-symbols-outlined">filter_list</span>
+<span>Apply Filters</span>
+</button>
+<a href="{{ url_for('admin_user_management') }}" class="px-4 py-3 rounded-xl border border-outline-variant/15 text-on-surface-variant hover:text-on-surface hover:border-primary/40 transition-colors">Reset</a>
+</div>
+</form>
+<!-- Data Table Section -->
+<div class="surface-container-low rounded-2xl overflow-hidden glass-panel glow-border shadow-2xl">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-white/5 border-b border-white/5">
+<th class="px-6 py-5 text-xs font-semibold text-on-surface-variant uppercase tracking-widest">Username</th>
+<th class="px-6 py-5 text-xs font-semibold text-on-surface-variant uppercase tracking-widest">Email Address</th>
+<th class="px-6 py-5 text-xs font-semibold text-on-surface-variant uppercase tracking-widest">Plan</th>
+<th class="px-6 py-5 text-xs font-semibold text-on-surface-variant uppercase tracking-widest">Reg. Date</th>
+<th class="px-6 py-5 text-xs font-semibold text-on-surface-variant uppercase tracking-widest">Role</th>
+<th class="px-6 py-5 text-xs font-semibold text-on-surface-variant uppercase tracking-widest text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-white/5">
+{% for item in users %}
+<tr class="hover:bg-white/[0.02] transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold">{{ (item[1][:2] if item[1] else 'U')|upper }}</div>
+<div class="flex items-center gap-2">
+<span class="font-medium text-on-surface">{{ item[1] or '-' }}</span>
+{% if (item[5] or 'active')|lower == 'blocked' %}
+<span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-red-500/20 text-red-300 border border-red-500/40">Blocked</span>
+{% endif %}
+</div>
+</div>
+</td>
+<td class="px-6 py-4 text-on-surface-variant">{{ item[2] or '-' }}</td>
+<td class="px-6 py-4">
+{% set plan = (item[3] or 'free')|lower %}
+<span class="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-tighter {% if plan == 'premium' %}bg-primary-container/20 text-primary border border-primary/20{% elif plan == 'pro' %}bg-secondary-container/20 text-secondary border border-secondary/20{% else %}bg-surface-container-highest text-on-surface-variant border border-white/5{% endif %}">{{ plan }}</span>
+</td>
+<td class="px-6 py-4 text-on-surface-variant">{{ item[6].strftime('%b %d, %Y') if item[6] else '-' }}</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full {% if (item[4] or 'user')|lower == 'admin' %}bg-secondary{% else %}bg-emerald-400{% endif %}"></div>
+<span class="text-sm {% if (item[4] or 'user')|lower == 'admin' %}text-secondary{% else %}text-emerald-400{% endif %}">{{ item[4] or 'user' }}</span>
+</div>
+</td>
+<td class="px-6 py-4 text-right">
+<div class="flex justify-end gap-2">
+{% if (item[4] or '')|lower != 'admin' %}
+  {% if (item[5] or 'active')|lower == 'blocked' %}
+  <form method="POST" action="{{ url_for('admin_unblock_user', target_user_id=item[0]) }}" class="inline">
+  <button type="submit" class="px-3 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors text-xs font-bold">Unblock</button>
+  </form>
+  {% else %}
+  <button
+    type="button"
+    class="px-3 py-1 rounded-lg bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30 transition-colors text-xs font-bold"
+    data-action="{{ url_for('admin_block_user', target_user_id=item[0]) }}"
+    data-user="{{ item[1] or 'this user' }}"
+    onclick="openBlockModalFromButton(this)">
+    Block
+  </button>
+  {% endif %}
+{% endif %}
+</div>
+</td>
+</tr>
+{% else %}
+<tr>
+<td colspan="6" class="px-6 py-8 text-center text-on-surface-variant">No users found for the selected filters.</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+<!-- Pagination -->
+<div class="bg-white/5 px-6 py-4 flex items-center justify-between">
+<p class="text-xs text-on-surface-variant">Showing {{ users|length if users is not none else 0 }} user(s)</p>
+</div>
+</div>
+</main>
+
+<div id="block-confirm-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center px-4">
+  <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeBlockModal()"></div>
+  <div class="relative w-full max-w-md rounded-2xl border border-white/10 bg-[#15172a]/95 p-8 shadow-2xl">
+    <div class="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full border border-red-500/30 bg-red-500/10">
+      <span class="material-symbols-outlined text-red-400 text-3xl">block</span>
+    </div>
+    <h3 class="text-center text-3xl font-bold text-white">Block User?</h3>
+    <p class="mt-3 text-center text-lg text-slate-300">
+      Are you sure you want to block <span id="block-user-name" class="font-semibold text-white"></span>?
+      This user will not be able to log in.
+    </p>
+
+    <div class="mt-8 flex gap-3">
+      <button type="button" onclick="closeBlockModal()" class="flex-1 rounded-xl border border-white/15 py-3 font-semibold text-slate-300 hover:bg-white/5 transition-colors">Cancel</button>
+      <form id="block-confirm-form" method="POST" action="" class="flex-1">
+        <button type="submit" class="w-full rounded-xl border border-red-500/40 bg-red-500/20 py-3 font-bold text-red-200 hover:bg-red-500/30 transition-colors">Block</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  function openBlockModal(actionUrl, userName) {
+    const modal = document.getElementById('block-confirm-modal');
+    const form = document.getElementById('block-confirm-form');
+    const label = document.getElementById('block-user-name');
+
+    form.action = actionUrl;
+    label.textContent = userName || 'this user';
+    modal.classList.remove('hidden');
+  }
+
+  function openBlockModalFromButton(button) {
+    openBlockModal(button.dataset.action, button.dataset.user);
+  }
+
+  function closeBlockModal() {
+    const modal = document.getElementById('block-confirm-modal');
+    modal.classList.add('hidden');
+  }
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      closeBlockModal();
+    }
+  });
+</script>
+<!-- FAB Suppression Logic: Not rendering on this management/details focused page as per mandate -->
+</body></html>

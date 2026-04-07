@@ -87,10 +87,13 @@
 <div class="flex items-center gap-6">
 <div class="hidden lg:flex items-center gap-2 text-slate-400 text-xs">
                 <div class="flex items-center gap-3">
-{% if user and user|length > 5 and user[5] %}
-<img src="{{ url_for('static', filename='avatars/' + user[5]) }}" alt="avatar" class="w-10 h-10 rounded-full border border-white/20"/>
+{% if user and user|length > 6 and user[6] %}
+<div class="w-10 h-10 rounded-full overflow-hidden border border-white/20 relative">
+<img src="{{ url_for('static', filename='avatars/' + user[6]) }}" alt="avatar" class="w-10 h-10 object-cover" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"/>
+<div class="w-10 h-10 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 items-center justify-center text-white text-sm font-bold hidden">{{ (user[1][0] if user and user[1] else 'U')|upper }}</div>
+</div>
 {% else %}
-<div class="w-10 h-10 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 flex items-center justify-center text-white text-sm font-bold">{{ user[1][0] if user else 'U' }}</div>
+<div class="w-10 h-10 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 flex items-center justify-center text-white text-sm font-bold">{{ (user[1][0] if user and user[1] else 'U')|upper }}</div>
 {% endif %}
 <span class="text-sm font-medium text-slate-300"><span class="text-white">{{ user[1] if user else 'User' }}</span>
 <span class="ml-2 px-2 py-0.5 bg-brand-purple/20 text-brand-purple text-[10px] font-bold rounded border border-brand-purple/40 uppercase tracking-tighter">{{ user[3] if user and user|length > 3 else 'Free' }}</span></span>
@@ -137,8 +140,9 @@
 <div class="flex flex-col md:flex-row gap-10">
 <div class="relative group mx-auto md:mx-0">
 <div class="w-36 h-36 rounded-2xl overflow-hidden bg-slate-800 border-2 border-indigo-500/30 relative">
-<img id="avatar-preview" alt="Profile" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-     src="{% if user and user|length > 5 and user[5] %}{{ url_for('static', filename='avatars/' + user[5]) }}{% else %}https://lh3.googleusercontent.com/aida-public/AB6AXuAgnj3vmVRcKxe6WHbn9pzTuBquqsH-YaIKiAwvjk4SJGH8JZ75pGEBc9tMaAjWmP1xJCEO7CsUU9GPkNlgl1-d6eroypPByv8acN8GFywPyFhsEd1-NAtUEwGlgtKmPVDQ6pZWUAp3UmRxccAEivVLDcoSBkl2GcZePVWMvlFyGjyTknLGY9aaCeaSuXBTBtClW58ix_bNW33TEx_SlciuV3NH12LB1JUAue_JVaQzdN-rGq4oosBcoJ_UoghmJHChFaZK8Sjv{% endif %}"/>
+<img id="avatar-preview" alt="Profile" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 {% if not (user and user|length > 6 and user[6]) %}hidden{% endif %}"
+    src="{% if user and user|length > 6 and user[6] %}{{ url_for('static', filename='avatars/' + user[6]) }}{% endif %}"/>
+<div id="avatar-preview-fallback" class="w-full h-full flex items-center justify-center bg-gradient-to-r from-indigo-500 to-blue-500 text-white text-5xl font-bold {% if user and user|length > 6 and user[6] %}hidden{% endif %}">{{ (user[1][0] if user and user[1] else 'U')|upper }}</div>
 <label for="avatar-input" class="absolute inset-0 bg-slate-900/60 flex flex-col items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300 cursor-pointer">
 <span class="material-symbols-outlined text-secondary text-2xl">photo_camera</span>
 <span class="text-[10px] font-bold text-secondary uppercase tracking-wider">Change</span>
@@ -149,7 +153,7 @@
 <input type="hidden" name="remove_avatar" id="remove-avatar-flag" value="0"/>
 <div class="flex flex-col items-center gap-2 mt-2">
 <p class="text-[9px] text-slate-500 font-medium">PNG, JPG, GIF, WEBP</p>
-{% if user and user|length > 5 and user[5] %}
+{% if user and user|length > 6 and user[6] %}
 <button type="button" id="remove-avatar-btn"
         onclick="removeAvatar()"
         class="flex items-center gap-1 px-2 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 hover:text-red-300 text-[10px] font-bold uppercase tracking-wider transition-all">

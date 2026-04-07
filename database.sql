@@ -10,11 +10,16 @@ CREATE TABLE IF NOT EXISTS users (
     email VARCHAR(255) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
     plan VARCHAR(20) NOT NULL DEFAULT 'free',
+    role VARCHAR(20) NOT NULL DEFAULT 'user',
+    account_status VARCHAR(20) NOT NULL DEFAULT 'active',
     bio TEXT DEFAULT NULL,
     avatar VARCHAR(255) DEFAULT NULL,
+    reset_token VARCHAR(255) DEFAULT NULL,
+    reset_token_expires DATETIME DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_email (email)
+    INDEX idx_email (email),
+    INDEX idx_reset_token (reset_token)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Uploaded Files Table
@@ -22,6 +27,7 @@ CREATE TABLE IF NOT EXISTS uploaded_files (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
     filename VARCHAR(255) NOT NULL,
+    stored_filename VARCHAR(255) DEFAULT NULL,
     upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     INDEX idx_user_id (user_id),
@@ -51,3 +57,5 @@ INSERT INTO users (name, email, password) VALUES
 ('Demo User', 'demo@example.com', 'pbkdf2:sha256:600000$...$...');
 
 ALTER TABLE users ADD COLUMN avatar VARCHAR(255) DEFAULT 'default.png';
+
+

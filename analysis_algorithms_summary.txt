@@ -1,0 +1,235 @@
+CodeInsight Analysis Algorithms Summary
+========================================
+
+This file summarizes how Python and Java files are analyzed and scored in the current CodeInsight app implementation.
+
+1. Language Detection
+---------------------
+- `CodeAnalyzer.get_file_language(filepath)` detects language by file extension.
+- Supported extensions:
+  - .py -> python
+  - .java -> java
+  - .js -> javascript
+  - .css -> css
+  - .html -> html
+
+2. Python Analysis
+------------------
+The Python analysis path is used for any non-Java file.
+
+2.1 Syntax Check
+- `CodeAnalyzer.check_syntax(filepath)` attempts to parse the file with Python AST.
+- If parsing fails, it returns a syntax error message with line number.
+- If parse succeeds, it returns an empty issue list.
+
+2.2 Style Check
+- `CodeAnalyzer.check_code_style(filepath)` runs `pylint` on the absolute file path.
+- Uses stricter enabled rules:
+  - syntax-error, basic, unused-import, unused-variable, undefined-variable,
+    missing-docstring, invalid-name, line-too-long, too-many-lines,
+    too-many-branches, too-many-statements, too-many-locals, too-few-public-methods,
+    bad-indentation, superfluous-parens, missing-final-newline, trailing-whitespace,
+    trailing-newlines, wrong-import-position, ungrouped-imports, broad-except,
+    consider-using-with, unnecessary-pass, duplicate-code
+- It parses pylint output and returns the first 50 issue lines.
+- If pylint times out or fails, it returns a special failure message.
+
+2.3 Complexity Calculation
+- `CodeAnalyzer.calculate_complexity(filepath)` uses Radon if available.
+- It computes block complexity and blends average and max complexity.
+- If Radon is unavailable, it falls back to a simple decision-point count based on keywords.
+- Output is capped at 10.
+
+2.4 Maintainability Index
+- `CodeAnalyzer.calculate_maintainability(filepath)` uses Radon MI if available.
+- If Radon is unavailable, it falls back to `radon mi` CLI output.
+- Output is bounded between 0 and 100.
+- Failure returns a conservative value (20.0).
+
+2.5 Basic Code Metrics
+- `CodeAnalyzer.get_code_metrics(filepath)` counts:
+  - total lines
+  - code lines (non-empty, non-comment)
+  - Python functions
+  - Python classes
+- Uses AST to count functions and class definitions.
+
+2.6 Semantic Python Quality Checks
+- `CodeAnalyzer.check_python_semantic_quality(filepath)` adds custom Python quality issues that static style may miss.
+- Issues detected:
+  - W0001: Poor naming for single-letter variable names (except i,j,k,x,y,z)
+  - W0002: Missing docstrings for public functions/classes
+  - W0003: Inefficient linear search in loops
+  - W0004: Inefficient brute-force algorithms (primality/fib detection)
+  - W0005: String concatenation in loops
+  - W0006: No error handling in files with many functions
+  - W0007: Too much module-level code
+  - W0008: Unused function parameters
+- It uses AST parsing and line scanning to detect patterns.
+- It returns up to 15 unique semantic issues.
+
+2.7 Python Aggregate Analysis
+- `CodeAnalyzer.analyze(filepath)` for Python files returns:
+  - syntax_issues: from `check_syntax`
+  - style_issues: `check_code_style` + `check_python_semantic_quality`
+  - complexity: from `calculate_complexity`
+  - maintainability: from `calculate_maintainability`
+  - metrics: from `get_code_metrics`
+
+2.8 Empty File Handling
+- `CodeAnalyzer.analyze(filepath)` checks for empty or whitespace-only files.
+- If the file is empty, it returns:
+  - syntax_issues: ["CRITICAL: File is empty - no code to analyze"]
+  - style_issues: ["CRITICAL: Empty file - no actual implementation"]
+  - complexity: 0
+  - maintainability: 0
+  - metrics: zeros
+
+3. Java Analysis
+----------------
+The Java analysis path is used for files with `.java` extension.
+
+3.1 Syntax Checking
+- `CodeAnalyzer.check_java_syntax(filepath)` performs basic syntax heuristics:
+  - counts braces, parentheses, brackets
+  - skips comment lines
+  - checks missing opening braces after class/method declarations
+  - checks main method signature
+  - reports unmatched braces/parentheses/brackets
+- Returns a list of syntax issue strings.
+
+3.2 Java Metrics
+- `CodeAnalyzer.get_java_metrics(filepath)` returns:
+  - total_lines
+  - code_lines (non-comment, non-empty)
+  - functions (method count)
+  - classes
+  - interfaces
+  - max_nesting depth of `{}` blocks
+- Uses regex matching for methods, classes, interfaces.
+
+3.3 Java Complexity
+- `CodeAnalyzer.calculate_java_complexity(filepath)` counts decision points for:
+  - if, else if, else, for, while, switch, case, catch, ? , :
+- Counts methods and lambdas.
+- Uses average complexity formula plus penalties:
+  - decision density relative to code lines
+  - deep nesting
+  - lambda count
+- Result is capped at 10.
+
+3.4 Java Maintainability
+- `CodeAnalyzer.calculate_java_maintainability(filepath)` computes a heuristic MI:
+  - starts from base 85
+  - penalizes deep nesting, high complexity, large methods, extreme file size
+  - rewards multiple classes/interfaces, small methods with low complexity
+  - penalizes raw types, generic catches, hardcoded secrets, mutable public statics, dead code, SQL concatenation
+- Clamps output between 0 and 100.
+
+3.5 Java Style Checking
+- `CodeAnalyzer.check_java_style(filepath)` scans source line-by-line and categorizes issues as:
+  - errors: missing JavaDoc, raw types, public static mutable fields, hardcoded secrets, suspicious hardcoded values
+  - warnings: too many parameters, string concatenation in loops, generic exception catches, dead code, SQL injection, line length >120
+  - infos: magic numbers
+- Returns a combined list of up to 30 issues (errors, warnings, infos).
+
+3.6 Java Aggregate Analysis
+- `CodeAnalyzer.analyze(filepath)` for Java files returns:
+  - syntax_issues: from `check_java_syntax`
+  - style_issues: from `check_java_style`
+  - complexity: from `calculate_java_complexity`
+  - maintainability: from `calculate_java_maintainability`
+  - metrics: from `get_java_metrics`
+
+4. Issue Categorization
+-----------------------
+- `categorize_issues(issues, language)` groups issues into:
+  - Formatting
+  - Naming
+  - Documentation
+  - Logic
+  - Quality (Python-only)
+  - Other
+- Java-specific tags map errors/warnings into these categories.
+- Python-specific tags include pylint codes and custom W000x patterns.
+
+5. Scoring Logic
+----------------
+- `ScoreCalculator.calculate_score(analysis)` computes an overall score out of 100.
+- It uses three weighted components:
+  - Style Score: 50 points
+  - Complexity Score: 25 points
+  - Maintainability Score: 25 points
+
+5.1 Empty File Scoring
+- If a file is empty, the score returns 0 across the board.
+
+5.2 Java Style Scoring
+- If style issues start with severity tags `[ERROR]` or `[WARNING]`, Java scoring uses:
+  - 50 points for zero issues
+  - 45 points for 0 errors, <=2 warnings
+  - 40 points for 0 errors, <=5 warnings
+  - 30 points for <=2 errors
+  - 20 points for <=5 errors
+  - 10 points otherwise
+
+5.3 Python Style Scoring
+- Python style issues are parsed from pylint codes:
+  - `E`/`F` = errors
+  - `W` = warnings
+  - others = minor
+- Additional custom semantic issues are counted separately:
+  - naming issues, missing docstrings, inefficiency issues
+- Score adjustments:
+  - heavy penalties for naming/docstring/semantic issues
+  - warning/error penalties scaled into style score
+  - volume caps lower the score when issue count is high
+
+5.4 Complexity Scoring
+- Uses the computed complexity value:
+  - <=1.5 = 25
+  - <=2.5 = 23
+  - <=4 = 20
+  - <=6 = 15
+  - <=8 = 10
+  - <=10 = 5
+  - >10 = 0
+
+5.5 Maintainability Scoring
+- Uses computed MI:
+  - >=85 = 25
+  - >=75 = 22
+  - >=65 = 18
+  - >=50 = 12
+  - >=35 = 6
+  - <35 = 0
+
+5.6 Syntax Penalty
+- If any syntax issues exist, scores are capped:
+  - style <= 5
+  - complexity <= 5
+  - maintainability <= 6
+
+5.7 Final Output
+- `calculate_score` returns:
+  - style_score
+  - complexity_score
+  - maintainability_score
+  - style_pct
+  - complexity_pct
+  - maintainability_pct
+  - total_score
+  - technical_debt_hours
+
+6. Suggestions
+--------------
+- `ScoreCalculator.get_suggestions(analysis, scores, language)` generates human-readable improvement hints.
+- It uses:
+  - syntax issue presence for critical recommendations
+  - style issue counts for severity hints
+  - language-specific guidance for Java vs Python
+  - complexity thresholds for refactoring advice
+  - maintainability thresholds for documentation/refactor advice
+  - code metrics to suggest splitting large files or reducing functions
+
+This summary contains the core code analysis and scoring models used by CodeInsight for Python and Java files.

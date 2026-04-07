@@ -163,13 +163,18 @@ function initSettingsHandlers() {
     const avatarInput = document.getElementById('avatar-input');
     if (!avatarInput) return; // Exit if not on settings page
 
-    const PLACEHOLDER = "https://lh3.googleusercontent.com/aida-public/AB6AXuAgnj3vmVRcKxe6WHbn9pzTuBquqsH-YaIKiAwvjk4SJGH8JZ75pGEBc9tMaAjWmP1xJCEO7CsUU9GPkNlgl1-d6eroypPByv8acN8GFywPyFhsEd1-NAtUEwGlgtKmPVDQ6pZWUAp3UmRxccAEivVLDcoSBkl2GcZePVWMvlFyGjyTknLGY9aaCeaSuXBTBtClW58ix_bNW33TEx_SlciuV3NH12LB1JUAue_JVaQzdN-rGq4oosBcoJ_UoghmJHChFaZK8Sjv";
+    const avatarPreview = document.getElementById('avatar-preview');
+    const avatarFallback = document.getElementById('avatar-preview-fallback');
 
     window.previewAvatar = function(input) {
         if (input.files && input.files[0]) {
             const reader = new FileReader();
             reader.onload = function(e) {
-                document.getElementById('avatar-preview').src = e.target.result;
+                if (avatarPreview) {
+                    avatarPreview.src = e.target.result;
+                    avatarPreview.classList.remove('hidden');
+                }
+                if (avatarFallback) avatarFallback.classList.add('hidden');
             };
             reader.readAsDataURL(input.files[0]);
             // Cancel any pending removal if a new file is chosen
@@ -182,8 +187,12 @@ function initSettingsHandlers() {
     window.removeAvatar = function() {
         // Set removal flag
         document.getElementById('remove-avatar-flag').value = '1';
-        // Reset preview to placeholder
-        document.getElementById('avatar-preview').src = PLACEHOLDER;
+        // Show initial fallback and hide image preview
+        if (avatarPreview) {
+            avatarPreview.src = '';
+            avatarPreview.classList.add('hidden');
+        }
+        if (avatarFallback) avatarFallback.classList.remove('hidden');
         // Clear the file input
         document.getElementById('avatar-input').value = '';
         // Hide the remove button
