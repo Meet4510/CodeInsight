@@ -13,7 +13,8 @@ CodeInsight is a Flask-based code analysis web app for Python and Java files, wi
 - Language-aware analysis pipeline
 - Results dashboard with:
   - Overall score
-  - Style, Complexity, Maintainability sub-scores
+  - Style, Complexity, Maintainability, Structure sub-scores
+  - Explainable score breakdown (reasoning per metric)
   - Suggestions and issue breakdown
 - PDF report generation
 - Empty-file detection with user-facing warning in results
@@ -43,42 +44,47 @@ CodeInsight is a Flask-based code analysis web app for Python and Java files, wi
 
 ## Current Scoring Model (0-100)
 
-Overall score is computed as:
+CodeInsight uses a continuous, explainable scoring model:
 
-- Style Score: 0-50
-- Complexity Score: 0-25
-- Maintainability Score: 0-25
+- Style Score: 0-45 (weighted issue density with exponential decay)
+- Complexity Score: 0-25 (normalized complexity curve)
+- Maintainability Score: 0-25 (MI-based, size-normalized for large modules)
+- Structure Score: 0-5 (organization and architecture heuristics)
 
-Total = Style + Complexity + Maintainability
+Total = Style + Complexity + Maintainability + Structure
 
-### Complexity Score Buckets (0-25)
+### Style Scoring (0-45)
 
-- <= 1.5 -> 25
-- <= 2.5 -> 23
-- <= 4.0 -> 20
-- <= 6.0 -> 15
-- <= 8.0 -> 10
-- <= 10.0 -> 5
-- > 10.0 -> 0
+- Issues are classified into: `error`, `warning`, `info`, and semantic (`W000x`)
+- Weighted issue density is computed per code line
+- Score is continuous (no hard buckets), then adjusted for naming/doc/duplicate patterns
 
-### Maintainability Score Buckets (0-25)
+### Complexity Scoring (0-25)
 
-- >= 85 -> 25
-- >= 75 -> 22
-- >= 65 -> 18
-- >= 50 -> 12
-- >= 35 -> 6
-- < 35 -> 0
+- Uses a normalized curve to avoid over-penalizing moderate complexity
+- Includes light structural adjustments for deep nesting and very long average function length
 
-### Style Score Logic
+### Maintainability Scoring (0-25)
 
-- Java: based on detected `[ERROR]` / `[WARNING]` counts
-- Python: based on parsed Pylint severity classes (`E/F/W/C/R`)
+- Starts from Radon MI (`0..100`)
+- Applies size normalization so large single-file modules are not unfairly depressed
 
-### Critical Guardrails
+### Structure Scoring (0-5)
 
-- Syntax errors force strong score penalties
-- Empty files (`code_lines == 0`) return score 0 and show an empty-file message
+- Rewards presence of functions/classes, manageable nesting, and healthy function-length distribution
+
+### Syntax & Edge Handling
+
+- Syntax penalties apply only when syntax issues exist
+- Empty files return 0 with an explicit warning in results
+
+### Explainability
+
+- The scoring API returns a `breakdown` object with human-readable reasoning for:
+  - style
+  - complexity
+  - maintainability
+  - structure
 
 ---
 

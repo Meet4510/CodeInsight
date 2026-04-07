@@ -65,6 +65,7 @@
         /* Anchor offset for fixed header */
         #analysis,
         #parameters,
+        #semantic-issues,
         #advanced-metrics,
         #tools,
         #faq {
@@ -87,6 +88,7 @@
 <nav class="hidden md:flex items-center gap-6">
 <a class="text-sm font-medium text-slate-400 hover:text-white transition-colors" href="#analysis">Analysis</a>
 <a class="text-sm font-medium text-slate-400 hover:text-white transition-colors" href="#parameters">Parameters</a>
+<a class="text-sm font-medium text-slate-400 hover:text-white transition-colors" href="#semantic-issues">Semantic Issues</a>
 <a class="text-sm font-medium text-slate-400 hover:text-white transition-colors" href="#advanced-metrics">Metric Logic</a>
 <a class="text-sm font-medium text-slate-400 hover:text-white transition-colors" href="#tools">Tools</a>
 <a class="text-sm font-medium text-slate-400 hover:text-white transition-colors" href="#faq">FAQ</a>
@@ -189,6 +191,39 @@
 </div>
 </div>
 </section>
+<!-- Semantic Issues -->
+<section id="semantic-issues" class="glass-card rounded-[2.5rem] p-12">
+    <div class="text-center mb-12">
+        <h2 class="text-4xl font-black mb-3 text-white">Semantic Issues</h2>
+        <p class="max-w-3xl mx-auto text-slate-300">Semantic issues are code-quality problems that are not syntax errors, but still make code harder to read, maintain, or optimize. CodeInsight detects them with custom rules in addition to standard linting.</p>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div class="glass-card p-8 rounded-2xl bg-white/5 border border-white/10">
+            <h3 class="text-xl font-bold text-white mb-4">What the app looks for</h3>
+            <ul class="space-y-3 text-slate-300 text-sm leading-relaxed">
+                <li><span class="text-white font-semibold">Poor naming:</span> single-letter variables that do not clearly describe their purpose.</li>
+                <li><span class="text-white font-semibold">Missing docstrings:</span> public functions and classes without documentation.</li>
+                <li><span class="text-white font-semibold">Inefficient patterns:</span> linear search in loops, naive algorithms, or string concatenation inside loops.</li>
+                <li><span class="text-white font-semibold">Low resilience:</span> large codebases with little or no error handling.</li>
+                <li><span class="text-white font-semibold">Poor structure:</span> too much logic left at module level instead of being organized into functions.</li>
+                <li><span class="text-white font-semibold">Unused parameters:</span> function arguments that are declared but never used.</li>
+            </ul>
+        </div>
+        <div class="glass-card p-8 rounded-2xl bg-white/5 border border-white/10">
+            <h3 class="text-xl font-bold text-white mb-4">How it works</h3>
+            <ul class="space-y-3 text-slate-300 text-sm leading-relaxed">
+                <li><span class="text-white font-semibold">1.</span> CodeInsight parses Python files into an AST so it can inspect structure, not just text.</li>
+                <li><span class="text-white font-semibold">2.</span> It scans for custom rules labeled <span class="text-primary">W0001</span> through <span class="text-primary">W0008</span>.</li>
+                <li><span class="text-white font-semibold">3.</span> These findings are added to the style issue list together with Pylint results.</li>
+                <li><span class="text-white font-semibold">4.</span> The scoring engine uses weighted issue density, so semantic issues affect style continuously rather than hard bucket jumps.</li>
+                <li><span class="text-white font-semibold">5.</span> The final result is explainable, with a breakdown that shows exactly why each score changed.</li>
+            </ul>
+            <div class="mt-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-md">
+                <p class="text-sm text-red-700 font-semibold">Semantic issues influence style score through weighted density (not fixed-step penalties), improving fairness across small and large files.</p>
+            </div>
+        </div>
+    </div>
+</section>
 <!-- Scoring System -->
 <section class="glass-card rounded-[2.5rem] p-12">
 <div class="text-center mb-16">
@@ -222,51 +257,49 @@
 <section class="glass-card rounded-[2.5rem] p-12">
     <div class="text-center mb-12">
         <h2 class="text-4xl font-black mb-3 text-white">Scoring System (0-100)</h2>
-        <p class="max-w-2xl mx-auto text-slate-300">Your overall score is calculated by combining three weighted metrics across Python and Java files. Each metric is scored independently and then summed to produce the final score.</p>
+        <p class="max-w-2xl mx-auto text-slate-300">The engine uses continuous formulas with explainable reasoning. Scores are size-aware, smoother, and avoid abrupt threshold jumps.</p>
     </div>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
         <div class="glass-card p-8 rounded-2xl bg-white/5 border border-white/10">
             <h3 class="text-xl font-bold text-white mb-4">Metric weights</h3>
             <ul class="space-y-4 text-slate-300">
-                <li><span class="font-semibold text-white">Style Score</span> — <span class="text-primary">50 pts</span><br><span class="text-sm">Severity-aware issues (errors/warnings) determine the style bucket.</span></li>
-                <li><span class="font-semibold text-white">Complexity Score (Cyclomatic)</span> — <span class="text-primary">25 pts</span><br><span class="text-sm">Lower complexity scores best; deep nesting and dense branching reduce points.</span></li>
-                <li><span class="font-semibold text-white">Maintainability Score</span> — <span class="text-primary">25 pts</span><br><span class="text-sm">Higher maintainability index yields higher points after risk penalties.</span></li>
+                <li><span class="font-semibold text-white">Style Score</span> — <span class="text-primary">45 pts</span><br><span class="text-sm">Weighted issue density with exponential decay (errors, warnings, info, semantic).</span></li>
+                <li><span class="font-semibold text-white">Complexity Score</span> — <span class="text-primary">25 pts</span><br><span class="text-sm">Continuous normalized curve, with light adjustments for deep nesting and long functions.</span></li>
+                <li><span class="font-semibold text-white">Maintainability Score</span> — <span class="text-primary">25 pts</span><br><span class="text-sm">Derived from MI with size normalization for large modules.</span></li>
+                <li><span class="font-semibold text-white">Structure Score</span> — <span class="text-primary">5 pts</span><br><span class="text-sm">Rewards healthy code organization: function/class presence, distribution, and nesting control.</span></li>
             </ul>
         </div>
         <div class="glass-card p-8 rounded-2xl bg-white/5 border border-white/10">
-            <h3 class="text-xl font-bold text-white mb-4">Scoring table</h3>
+            <h3 class="text-xl font-bold text-white mb-4">Scoring behavior</h3>
             <div class="overflow-x-auto">
                 <table class="min-w-full text-left text-sm text-slate-300">
                     <thead>
                         <tr class="text-xs uppercase tracking-widest text-slate-400">
                             <th class="px-4 py-3">Metric</th>
-                            <th class="px-4 py-3">Excellent</th>
-                            <th class="px-4 py-3">Good</th>
-                            <th class="px-4 py-3">Average</th>
-                            <th class="px-4 py-3">Poor</th>
+                            <th class="px-4 py-3">Range</th>
+                            <th class="px-4 py-3">Model</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr class="border-t border-white/10">
-                            <td class="px-4 py-4">Style Issues</td>
-                            <td class="px-4 py-4">0 E / 0 W = 50 pts</td>
-                            <td class="px-4 py-4">0 E / ≤2 W = 45 pts</td>
-                            <td class="px-4 py-4">0 E / ≤5 W = 40 pts</td>
-                            <td class="px-4 py-4">7+ issues = 10 pts</td>
+                            <td class="px-4 py-4">Style</td>
+                            <td class="px-4 py-4">0..45</td>
+                            <td class="px-4 py-4">Exponential decay on weighted issue density</td>
                         </tr>
                         <tr class="border-t border-white/10">
-                            <td class="px-4 py-4">Complexity (CC)</td>
-                            <td class="px-4 py-4">≤ 1.5 = 25 pts</td>
-                            <td class="px-4 py-4">≤ 2.5 = 23 pts</td>
-                            <td class="px-4 py-4">≤ 4 = 20 pts</td>
-                            <td class="px-4 py-4">> 10 = 0 pts</td>
+                            <td class="px-4 py-4">Complexity</td>
+                            <td class="px-4 py-4">0..25</td>
+                            <td class="px-4 py-4">Normalized continuous curve (smooth penalties)</td>
                         </tr>
                         <tr class="border-t border-white/10">
-                            <td class="px-4 py-4">Maintainability Index</td>
-                            <td class="px-4 py-4">≥ 85 = 25 pts</td>
-                            <td class="px-4 py-4">≥ 75 = 22 pts</td>
-                            <td class="px-4 py-4">≥ 65 = 18 pts</td>
-                            <td class="px-4 py-4">< 25 = 0 pts</td>
+                            <td class="px-4 py-4">Maintainability</td>
+                            <td class="px-4 py-4">0..25</td>
+                            <td class="px-4 py-4">MI-based with size normalization</td>
+                        </tr>
+                        <tr class="border-t border-white/10">
+                            <td class="px-4 py-4">Structure</td>
+                            <td class="px-4 py-4">0..5</td>
+                            <td class="px-4 py-4">Heuristic organization quality checks</td>
                         </tr>
                     </tbody>
                 </table>
@@ -277,34 +310,32 @@
 <!-- Advanced Metric Logic -->
 <section id="advanced-metrics" class="glass-card rounded-[2.5rem] p-12">
     <div class="text-center mb-12">
-        <h2 class="text-4xl font-black mb-3 text-white">How Cyclomatic &amp; Maintainability Work</h2>
-        <p class="max-w-3xl mx-auto text-slate-300">This section explains the current engine logic used for Java scoring in production, including penalties and thresholds.</p>
+        <h2 class="text-4xl font-black mb-3 text-white">Advanced Scoring Logic</h2>
+        <p class="max-w-3xl mx-auto text-slate-300">Score components are continuous and explainable, and each analysis response includes metric-by-metric reasoning in the results page.</p>
     </div>
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div class="glass-card p-8 rounded-2xl bg-white/5 border border-white/10">
-            <h3 class="text-xl font-bold text-white mb-4">Cyclomatic Complexity (Java)</h3>
+            <h3 class="text-xl font-bold text-white mb-4">Complexity + Structure</h3>
             <ul class="space-y-3 text-slate-300 text-sm leading-relaxed">
-                <li><span class="text-white font-semibold">1.</span> Count decision points: <span class="text-primary">if, else-if, else, for, while, switch, case, catch, ?, :</span></li>
-                <li><span class="text-white font-semibold">2.</span> Compute base complexity: <span class="text-primary">1 + (decision_points / methods) * 0.15</span></li>
-                <li><span class="text-white font-semibold">3.</span> Add branch-density penalty from decision points per 100 code lines.</li>
-                <li><span class="text-white font-semibold">4.</span> Add deep-nesting penalty using max brace depth (extra heavy after depth 10).</li>
-                <li><span class="text-white font-semibold">5.</span> Add lambda penalty (<span class="text-primary">+0.2</span> each) and cap final value at <span class="text-primary">10.0</span>.</li>
+                <li><span class="text-white font-semibold">1.</span> Complexity is converted with a normalized smooth curve (no abrupt bucket jumps).</li>
+                <li><span class="text-white font-semibold">2.</span> Deep nesting and very long average function length apply small adjustments.</li>
+                <li><span class="text-white font-semibold">3.</span> Structure score adds up to 5 points for healthy organization and readability signals.</li>
+                <li><span class="text-white font-semibold">4.</span> Final complexity and structure are shown separately in results.</li>
             </ul>
             <div class="mt-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-md">
-                <p class="text-sm text-red-700 font-semibold">Complexity score map: ≤1.5→25, ≤2.5→23, ≤4→20, ≤6→15, ≤8→10, ≤10→5, >10→0</p>
+                <p class="text-sm text-red-700 font-semibold">This model keeps moderate complexity fair while still penalizing truly complex code.</p>
             </div>
         </div>
         <div class="glass-card p-8 rounded-2xl bg-white/5 border border-white/10">
-            <h3 class="text-xl font-bold text-white mb-4">Maintainability Index (Java)</h3>
+            <h3 class="text-xl font-bold text-white mb-4">Maintainability + Explainability</h3>
             <ul class="space-y-3 text-slate-300 text-sm leading-relaxed">
-                <li><span class="text-white font-semibold">1.</span> Start from base <span class="text-primary">MI = 85</span>.</li>
-                <li><span class="text-white font-semibold">2.</span> Apply structure penalties for deep nesting, high complexity, and oversized methods.</li>
-                <li><span class="text-white font-semibold">3.</span> Apply risk-pattern penalties (capped): raw types, generic catch, hardcoded secrets, mutable public static fields, dead code, SQL string concatenation.</li>
-                <li><span class="text-white font-semibold">4.</span> Clamp final MI to <span class="text-primary">0..100</span>.</li>
-                <li><span class="text-white font-semibold">5.</span> Convert MI to score: <span class="text-primary">≥85→25, ≥75→22, ≥65→18, ≥50→12, ≥35→6, else 0</span>.</li>
+                <li><span class="text-white font-semibold">1.</span> Maintainability starts from MI and is normalized for code size to reduce bias against large files.</li>
+                <li><span class="text-white font-semibold">2.</span> Syntax penalties are soft and applied only when syntax issues exist.</li>
+                <li><span class="text-white font-semibold">3.</span> Technical debt is estimated from issue severity mix (errors/warnings/semantic).</li>
+                <li><span class="text-white font-semibold">4.</span> Results include human-readable breakdown text for each component.</li>
             </ul>
             <div class="mt-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-md">
-                <p class="text-sm text-red-700 font-semibold">Technical debt shown in results: (100 - MI) × 0.15 hours</p>
+                <p class="text-sm text-red-700 font-semibold">The final score combines Style (45) + Complexity (25) + Maintainability (25) + Structure (5).</p>
             </div>
         </div>
     </div>

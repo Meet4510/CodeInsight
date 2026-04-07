@@ -11,7 +11,7 @@
 
 ## What is CodeInsight?
 
-A web application that analyzes Python code quality and provides:
+A web application that analyzes Python and Java code quality and provides:
 - Syntax validation
 - Style analysis (PEP 8 compliance)
 - Complexity metrics
@@ -63,10 +63,10 @@ project/
 - User profile in dashboard
 
 ### ✅ File Management
-- Upload Python files (.py only)
-- File validation
-- Timestamp-based naming
-- Database tracking
+- Upload Python and Java files
+- File type validation
+- Safe unique internal storage + original filename preservation
+- Database tracking with upload history
 
 ### ✅ Code Analysis Engine
 **Syntax Check (AST Module):**
@@ -92,35 +92,33 @@ project/
 
 ### ✅ Scoring System
 ```
-Style Score (40 points):
-- 3 points deducted per style issue
-- Maximum 40 points
+Continuous Scoring Model (0-100):
 
-Complexity Score (30 points):
-- Complexity ≤ 2: 30 points
-- Complexity ≤ 4: 25 points
-- Complexity ≤ 7: 20 points
-- Complexity ≤ 10: 10 points
-- Complexity > 10: 0 points
+Style Score (0-45):
+- Weighted issue density (errors, warnings, info, semantic)
+- Exponential decay model for smooth scoring
 
-Maintainability Score (30 points):
-- MI ≥ 85: 30 points
-- MI ≥ 70: 25 points
-- MI ≥ 50: 20 points
-- MI ≥ 25: 10 points
-- MI < 25: 0 points
+Complexity Score (0-25):
+- Normalized continuous curve from cyclomatic complexity
+- Light adjustments for deep nesting and very long functions
 
-Total Score: 0-100
+Maintainability Score (0-25):
+- MI-based scoring with size normalization for large modules
+
+Structure Score (0-5):
+- Rewards healthy organization (functions/classes, nesting, distribution)
+
+Total Score = Style + Complexity + Maintainability + Structure
 ```
 
 ### ✅ Results Dashboard
 - Overall score with progress bar
-- Complexity value display
-- Maintainability index
+- Complexity and maintainability component cards
+- Structure score display
 - Chart visualization (Chart.js)
 - List of all issues found
 - Actionable suggestions
-- Score breakdown by category
+- Explainable score breakdown by category
 
 ### ✅ PDF Report Generation
 - Professional PDF layout

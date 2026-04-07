@@ -82,24 +82,49 @@ except Exception as e:
 # Create upload folder if it doesn't exist
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# Login required decorator
-def login_required(f):
-    @wraps(f)
+def login_required(func):
+    """
+    Decorator that requires user to be logged in before accessing a route.
+    Redirects to login page if user_id is not in session.
+    
+    Args:
+        func: The route function to decorate
+        
+    Returns:
+        function: Wrapped function that checks authentication
+    """
+    @wraps(func)
     def decorated_function(*args, **kwargs):
         if 'user_id' not in session:
             return redirect(url_for('login'))
-        return f(*args, **kwargs)
+        return func(*args, **kwargs)
     return decorated_function
 
-# Allowed file check
 def allowed_file(filename):
+    """
+    Check if the uploaded file has an allowed extension.
+    
+    Args:
+        filename: The name of the file to validate
+        
+    Returns:
+        bool: True if file extension is in ALLOWED_EXTENSIONS, False otherwise
+    """
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-#checks the language of the file based on the extension
 def get_language(filename):
+    """
+    Determine the programming language based on file extension.
+    
+    Args:
+        filename: The name of the file
+        
+    Returns:
+        str: Language name ('python', 'java', 'html', 'css', 'javascript') or 'unknown'
+    """
     ext = filename.rsplit('.', 1)[1].lower()
     
-    mapping = {
+    language_mapping = {
         'py': 'python',
         'java': 'java',
         'html': 'html',
@@ -107,20 +132,26 @@ def get_language(filename):
         'js': 'javascript'
     }
     
-    return mapping.get(ext, 'unknown')
+    return language_mapping.get(ext, 'unknown')
 
-# Check if the user's plan allows analyzing the given language
-def is_allowed(plan, language):
-    if plan == 'free':
-        return language == 'python'
+def is_allowed(plan_type, language):
+    """
+    Check if a user's subscription plan allows analysis of a given language.
     
-    elif plan == 'pro':
-        return language in ['python', 'java']
+    Args:
+        plan_type: The user's plan ('free', 'pro', 'premium')
+        language: The programming language to check
+        
+    Returns:
+        bool: True if the plan allows analysis of this language, False otherwise
+    """
+    allowed_languages = {
+        'free': ['python'],
+        'pro': ['python', 'java'],
+        'premium': ['python', 'java', 'html', 'css', 'javascript']
+    }
     
-    elif plan == 'premium':
-        return language in ['python', 'java', 'html', 'css', 'javascript']
-    
-    return False
+    return language in allowed_languages.get(plan_type, [])
 
 
 # Code Analysis Module
@@ -884,181 +915,262 @@ def categorize_issues(issues, language='python'):
 
 class ScoreCalculator:
     """Calculate code quality score"""
+
+    @staticmethod
+    def _clamp(value, low, high):
+        return max(low, min(high, value))
+
+    @staticmethod
+    def _classify_issues(style_issues):
+        """Classify style issues into weighted severity buckets."""
+        counts = {
+            'errors': 0,
+            'warnings': 0,
+            'info': 0,
+            'semantic': 0,
+            'naming': 0,
+            'doc': 0,
+            'duplicate': 0,
+            'total': 0,
+        }
+
+        for issue in style_issues or []:
+            text = str(issue or '').strip()
+            if not text:
+                continue
+
+            counts['total'] += 1
+            lower = text.lower()
+
+            is_semantic = bool(re.search(r'\bw000\d\b', lower)) or any(
+                token in lower for token in ['poor naming', 'missing docstring', 'inefficient algorithm', 'best practice', 'organization:']
+            )
+
+            if is_semantic:
+                counts['semantic'] += 1
+            elif '[error]' in lower or re.search(r':\s*[EF]\d{4}:', text):
+                counts['errors'] += 1
+            elif '[warning]' in lower or re.search(r':\s*W\d{4}:', text):
+                counts['warnings'] += 1
+            else:
+                counts['info'] += 1
+
+            if any(token in lower for token in ['invalid-name', 'poor naming', 'w0001', 'module name']):
+                counts['naming'] += 1
+            if any(token in lower for token in ['missing-docstring', 'missing docstring', 'w0002', 'javadoc']):
+                counts['doc'] += 1
+            if any(token in lower for token in ['duplicate-code', 'duplicate code']):
+                counts['duplicate'] += 1
+
+        return counts
+
+    @staticmethod
+    def _calculate_style_score(analysis, issue_counts, code_lines):
+        """Continuous style score using weighted issue density and exponential decay."""
+        weighted_issues = (
+            issue_counts['errors'] * 3.0
+            + issue_counts['warnings'] * 2.0
+            + issue_counts['info'] * 1.0
+            + issue_counts['semantic'] * 1.25
+        )
+        issue_density = weighted_issues / max(code_lines, 1)
+
+        style_score = 45.0 * math.exp(-1.8 * issue_density)
+
+        total_issues = max(issue_counts['total'], 1)
+        if issue_counts['naming'] / total_issues > 0.2:
+            style_score -= 2.5
+
+        # Scale docstring penalty smoothly up to 5 points.
+        doc_penalty = min(5.0, (issue_counts['doc'] / total_issues) * 8.0)
+        style_score -= doc_penalty
+
+        if issue_counts['duplicate'] > 0:
+            style_score -= 5.0
+
+        style_score = ScoreCalculator._clamp(style_score, 0.0, 45.0)
+
+        style_reason = (
+            f"Weighted issues={round(weighted_issues, 2)}, density={round(issue_density, 4)}; "
+            f"errors={issue_counts['errors']}, warnings={issue_counts['warnings']}, "
+            f"info={issue_counts['info']}, semantic={issue_counts['semantic']}."
+        )
+        return style_score, style_reason
+
+    @staticmethod
+    def _calculate_complexity_score(analysis, metrics):
+        """Continuous complexity score with structural adjustments."""
+        complexity = max(0.0, float(analysis.get('complexity', 0.0)))
+        code_lines = max(int(metrics.get('code_lines', 0) or 0), 1)
+        functions = max(int(metrics.get('functions', 0) or 0), 0)
+        max_nesting = int(metrics.get('max_nesting', 0) or 0)
+
+        # Normalize complexity scale before decay so moderate complexity (3-4)
+        # maps to a fair score range.
+        normalized_complexity = complexity / 3.5
+        complexity_score = 25.0 * (1.0 / (1.0 + ((normalized_complexity / 2.0) ** 1.5)))
+
+        if max_nesting > 5:
+            complexity_score -= 3.0
+
+        avg_function_length = (code_lines / functions) if functions > 0 else code_lines
+        if avg_function_length > 50:
+            complexity_score -= 2.0
+
+        complexity_score = ScoreCalculator._clamp(complexity_score, 0.0, 25.0)
+        complexity_reason = (
+            f"Complexity={round(complexity, 2)}, normalized={round(normalized_complexity, 2)}, max_nesting={max_nesting}, "
+            f"avg_function_length={round(avg_function_length, 2)}."
+        )
+        return complexity_score, complexity_reason, avg_function_length
+
+    @staticmethod
+    def _calculate_maintainability_score(analysis, metrics):
+        """Maintainability score derived from MI with size normalization."""
+        mi = ScoreCalculator._clamp(float(analysis.get('maintainability', 0.0)), 0.0, 100.0)
+        total_lines = max(int(metrics.get('total_lines', 0) or 0), 0)
+        code_lines = max(int(metrics.get('code_lines', 0) or 0), 0)
+        functions = max(int(metrics.get('functions', 0) or 0), 0)
+
+        # Size normalization prevents large modules from being overly punished by raw MI.
+        mi_size_adjustment = min(60.0, 0.14 * code_lines)
+        adjusted_mi = ScoreCalculator._clamp(mi + mi_size_adjustment, 0.0, 100.0)
+        maintainability_score = 25.0 * (adjusted_mi / 100.0)
+
+        maintainability_reason = (
+            f"MI={round(mi, 2)}, adjusted_MI={round(adjusted_mi, 2)}, total_lines={total_lines}, "
+            f"functions={functions}, code_lines={code_lines}."
+        )
+        return maintainability_score, maintainability_reason
+
+    @staticmethod
+    def _calculate_structure_score(metrics, avg_function_length):
+        """Small structure quality score that rewards clean architecture patterns."""
+        code_lines = max(int(metrics.get('code_lines', 0) or 0), 0)
+        functions = max(int(metrics.get('functions', 0) or 0), 0)
+        classes = max(int(metrics.get('classes', 0) or 0), 0)
+        max_nesting = int(metrics.get('max_nesting', 0) or 0)
+
+        structure_score = 0.0
+        reasons = []
+
+        if functions > 0 or classes > 0:
+            structure_score += 1.0
+            reasons.append('has functions/classes')
+
+        if code_lines > (functions * 3):
+            structure_score += 1.0
+            reasons.append('reasonable module-level balance')
+
+        if functions > 0 and 5 <= avg_function_length <= 80:
+            structure_score += 1.0
+            reasons.append('function lengths are reasonably distributed')
+
+        if max_nesting < 5:
+            structure_score += 1.0
+            reasons.append('nesting is controlled')
+
+        if avg_function_length < 80:
+            structure_score += 1.0
+            reasons.append('no extremely long functions by heuristic')
+
+        structure_score = ScoreCalculator._clamp(structure_score, 0.0, 5.0)
+        structure_reason = '; '.join(reasons) if reasons else 'limited structure signals available.'
+        return structure_score, structure_reason
     
     @staticmethod
     def calculate_score(analysis):
-        """Calculate overall score (0-100) rewarding clean, well-structured code"""
-        
-        metrics = analysis.get('metrics', {})
-        syntax_issue_count = len(analysis.get('syntax_issues', []))
-        
-        # Style Score (0-50)
-        style_issues = analysis['style_issues']
-        has_java_severity_tags = any(issue.startswith('[') for issue in style_issues)
+        """Calculate smooth, size-normalized, explainable overall score (0-100)."""
+        metrics = analysis.get('metrics', {}) or {}
+        syntax_issues = analysis.get('syntax_issues', []) or []
+        style_issues = analysis.get('style_issues', []) or []
+        code_lines = max(int(metrics.get('code_lines', 0) or 0), 1)
 
-        if has_java_severity_tags:
-            # Java path: preserve existing Java severity model.
-            error_count = len([i for i in style_issues if '[ERROR]' in i])
-            warning_count = len([i for i in style_issues if '[WARNING]' in i])
-
-            if error_count == 0 and warning_count == 0:
-                style_score = 50
-            elif error_count == 0 and warning_count <= 2:
-                style_score = 45
-            elif error_count == 0 and warning_count <= 5:
-                style_score = 40
-            elif error_count <= 2:
-                style_score = 30
-            elif error_count <= 5:
-                style_score = 20
-            else:
-                style_score = 10
-        else:
-            # Python path: parse pylint categories (E/F severe, W medium, C/R minor) + semantic issues
-            py_error_count = 0
-            py_warning_count = 0
-            py_minor_count = 0
-            semantic_issue_count = 0
-            naming_issue_count = 0
-            doc_issue_count = 0
-
-            for issue in style_issues:
-                # Count semantic quality issues separately
-                if any(code in issue for code in ['W000', 'w000', 'Poor naming', 'poor naming', 'Missing docstring', 'missing docstring', 'Inefficient', 'inefficient']):
-                    if 'poor naming' in issue.lower() or 'w0001' in issue.lower():
-                        naming_issue_count += 1
-                    elif 'missing docstring' in issue.lower() or 'w0002' in issue.lower():
-                        doc_issue_count += 1
-                    else:
-                        semantic_issue_count += 1
-                    py_warning_count += 1
-                    continue
-                
-                m = re.search(r':\s*([A-Z])\d{4}:', issue)
-                if not m:
-                    py_warning_count += 1
-                    continue
-                code_class = m.group(1)
-                if code_class in ['E', 'F']:
-                    py_error_count += 1
-                elif code_class == 'W':
-                    py_warning_count += 1
-                else:
-                    py_minor_count += 1
-
-            total_style_issues = py_error_count + py_warning_count + py_minor_count
-            
-            # STRICTER scoring when semantic quality issues present
-            if py_error_count == 0 and py_warning_count == 0 and py_minor_count == 0:
-                style_score = 50
-            elif py_error_count == 0 and naming_issue_count == 0 and doc_issue_count == 0 and semantic_issue_count == 0:
-                # No errors and no semantic issues
-                if py_warning_count <= 2 and py_minor_count <= 3:
-                    style_score = 45
-                elif py_warning_count <= 4 and py_minor_count <= 8:
-                    style_score = 32
-                elif py_warning_count <= 6:
-                    style_score = 22
-                else:
-                    style_score = 12
-            else:
-                # Apply HEAVY penalties for semantic quality issues (naming, docs, efficiency)
-                style_score = 50
-                
-                # Penalty for poor naming (most visible to users)
-                style_score -= min(15, naming_issue_count * 3)
-                
-                # Penalty for missing documentation
-                style_score -= min(10, doc_issue_count * 2)
-                
-                # Penalty for inefficiency/best practices
-                style_score -= min(10, semantic_issue_count * 2)
-                
-                # Penalty for pylint warnings/errors
-                style_score -= min(15, (py_error_count * 5) + (py_warning_count * 1))
-                
-                style_score = max(5, style_score)  # Min possible: 5
-
-            # Volume penalty: many issues should not retain a high style score.
-            if total_style_issues >= 20:
-                style_score = min(style_score, 8)
-            elif total_style_issues >= 15:
-                style_score = min(style_score, 15)
-            elif total_style_issues >= 10:
-                style_score = min(style_score, 25)
-        
-        # Complexity Score (0-25) - REWARD simple code
-        complexity = analysis['complexity']
-        if complexity <= 1.5:
-            complexity_score = 25  # Excellent: very simple
-        elif complexity <= 2.5:
-            complexity_score = 23  # Very good: simple code
-        elif complexity <= 4:
-            complexity_score = 20  # Good: low complexity
-        elif complexity <= 6:
-            complexity_score = 15  # Fair: moderate complexity
-        elif complexity <= 8:
-            complexity_score = 10  # Poor: too complex
-        elif complexity <= 10:
-            complexity_score = 5   # Very poor
-        else:
-            complexity_score = 0   # Unacceptable
-        
-        # Maintainability Score (0-25) - REWARD well-structured code  
-        mi = analysis['maintainability']
-        if mi >= 85:
-            maintainability_score = 25  # Excellent: highly maintainable
-        elif mi >= 75:
-            maintainability_score = 22  # Very good: well-maintained
-        elif mi >= 65:
-            maintainability_score = 18  # Good: maintainable
-        elif mi >= 50:
-            maintainability_score = 12  # Fair: somewhat maintainable
-        elif mi >= 35:
-            maintainability_score = 6   # Poor: hard to maintain
-        else:
-            maintainability_score = 0   # Very poor
-
-        # Syntax errors should heavily impact overall scoring.
-        # CRITICAL: Empty files should get 0 (no actual code to analyze)
-        if 'File is empty' in str(analysis.get('syntax_issues', [])):
+        # Handle empty files as explicit edge case.
+        if 'File is empty' in str(syntax_issues):
             return {
-                'style_score': 0,
-                'complexity_score': 0,
-                'maintainability_score': 0,
+                'style_score': 0.0,
+                'complexity_score': 0.0,
+                'maintainability_score': 0.0,
+                'structure_score': 0.0,
                 'style_pct': 0,
                 'complexity_pct': 0,
                 'maintainability_pct': 0,
-                'total_score': 0,
-                'technical_debt_hours': 0.0
+                'structure_pct': 0,
+                'total_score': 0.0,
+                'technical_debt_hours': 0.0,
+                'breakdown': {
+                    'style': 'Empty file: no style evidence available.',
+                    'complexity': 'Empty file: complexity defaults to 0.',
+                    'maintainability': 'Empty file: maintainability defaults to 0.',
+                    'structure': 'Empty file: no structural signals available.'
+                }
             }
-        
-        if syntax_issue_count > 0:
-            style_score = min(style_score, 5)
-            complexity_score = min(complexity_score, 5)
-            maintainability_score = min(maintainability_score, 6)
-        
-        # Total score: sum of weighted components (50 + 25 + 25 = 100)
-        total_score = style_score + complexity_score + maintainability_score
 
-        # Provide percentages for UI bars (0-100)
-        style_pct = int(round((style_score / 50) * 100)) if 50 else 0
-        complexity_pct = int(round((complexity_score / 25) * 100)) if 25 else 0
-        maintainability_pct = int(round((maintainability_score / 25) * 100)) if 25 else 0
+        issue_counts = ScoreCalculator._classify_issues(style_issues)
 
-        # Estimated technical debt (hours) from maintainability index.
-        # High maintainability gives lower debt and vice versa.
-        debt_hours = round(max(0.0, (100.0 - mi) * 0.15), 1)
+        style_score, style_reason = ScoreCalculator._calculate_style_score(
+            analysis, issue_counts, code_lines
+        )
+        complexity_score, complexity_reason, avg_function_length = ScoreCalculator._calculate_complexity_score(
+            analysis, metrics
+        )
+        maintainability_score, maintainability_reason = ScoreCalculator._calculate_maintainability_score(
+            analysis, metrics
+        )
+        structure_score, structure_reason = ScoreCalculator._calculate_structure_score(
+            metrics, avg_function_length
+        )
+
+        # Soft syntax penalty (less harsh than hard caps).
+        if syntax_issues:
+            style_score *= 0.3
+            complexity_score *= 0.5
+            maintainability_score *= 0.5
+
+        # Technical debt from issue severity profile.
+        technical_debt_hours = (
+            issue_counts['errors'] * 1.5
+            + issue_counts['warnings'] * 0.5
+            + issue_counts['semantic'] * 1.0
+        )
+
+        # Clamp once at the end so penalties are not applied multiple times.
+        style_score = ScoreCalculator._clamp(style_score, 0.0, 45.0)
+        complexity_score = ScoreCalculator._clamp(complexity_score, 0.0, 25.0)
+        maintainability_score = ScoreCalculator._clamp(maintainability_score, 0.0, 25.0)
+        structure_score = ScoreCalculator._clamp(structure_score, 0.0, 5.0)
+
+        total_score = min(100.0, style_score + complexity_score + maintainability_score + structure_score)
+
+        # Keep percentage keys for existing UI compatibility.
+        style_pct = int(round((style_score / 45.0) * 100))
+        complexity_pct = int(round((complexity_score / 25.0) * 100))
+        maintainability_pct = int(round((maintainability_score / 25.0) * 100))
+        structure_pct = int(round((structure_score / 5.0) * 100))
+
+        if syntax_issues:
+            style_reason += ' Soft syntax penalty applied (x0.3).'
+            complexity_reason += ' Soft syntax penalty applied (x0.5).'
+            maintainability_reason += ' Soft syntax penalty applied (x0.5).'
 
         return {
-            'style_score': style_score,
-            'complexity_score': complexity_score,
-            'maintainability_score': maintainability_score,
+            'style_score': round(style_score, 2),
+            'complexity_score': round(complexity_score, 2),
+            'maintainability_score': round(maintainability_score, 2),
+            'structure_score': round(structure_score, 2),
             'style_pct': style_pct,
             'complexity_pct': complexity_pct,
             'maintainability_pct': maintainability_pct,
-            'total_score': total_score,
-            'technical_debt_hours': debt_hours
+            'structure_pct': structure_pct,
+            'total_score': round(total_score, 2),
+            'technical_debt_hours': round(technical_debt_hours, 2),
+            'breakdown': {
+                'style': style_reason,
+                'complexity': complexity_reason,
+                'maintainability': maintainability_reason,
+                'structure': structure_reason,
+            }
         }
     
     @staticmethod
@@ -1066,6 +1178,16 @@ class ScoreCalculator:
         """Generate detailed and strict improvement suggestions with language awareness."""
         suggestions = []
         metrics = analysis.get('metrics', {})
+        style_issues = analysis.get('style_issues', []) or []
+        issue_counts = ScoreCalculator._classify_issues(style_issues)
+        code_lines = max(int(metrics.get('code_lines', 0) or 0), 1)
+        weighted_issues = (
+            issue_counts['errors'] * 3.0
+            + issue_counts['warnings'] * 2.0
+            + issue_counts['info'] * 1.0
+            + issue_counts['semantic'] * 2.5
+        )
+        issue_density = weighted_issues / code_lines
         
         # Critical issues first
         if len(analysis['syntax_issues']) > 0:
@@ -1075,38 +1197,36 @@ class ScoreCalculator:
                 suggestions.append("CRITICAL: Fix all syntax errors immediately. Code cannot run with syntax errors.")
         
         # Style issues
-        style_count = len(analysis['style_issues'])
-        if style_count > 10:
-            if language == 'java':
-                suggestions.append("SEVERE: Code has excessive style violations. Focus on Java naming conventions (CamelCase) and formatting.")
+        style_count = len(style_issues)
+        if style_count > 0:
+            if issue_density > 0.1:
+                if language == 'java':
+                    suggestions.append("SEVERE: Style issue density is high. Prioritize Java conventions and formatting fixes.")
+                else:
+                    suggestions.append("SEVERE: Style issue density is high. Prioritize lint and semantic fixes first.")
+            elif issue_density > 0.05:
+                suggestions.append("MODERATE: Style issue density is moderate. Improve consistency and clean up warnings.")
             else:
-                suggestions.append("SEVERE: Code has excessive style violations. Run 'pylint' and fix all issues.")
-        elif style_count > 5:
-            if language == 'java':
-                suggestions.append("HIGH PRIORITY: Multiple style issues detected. Focus on Java code conventions and structure.")
-            else:
-                suggestions.append("HIGH PRIORITY: Multiple style issues detected. Focus on PEP 8 compliance.")
-        elif style_count > 0:
-            suggestions.append("Address remaining style issues for better code quality.")
+                suggestions.append("GOOD: Style issue density is low. Address remaining minor issues for polish.")
 
         # Specific hints based on language
         if language == 'java':
-            if any('camelcase' in issue.lower() or 'method name' in issue.lower() for issue in analysis['style_issues']):
+            if any('camelcase' in issue.lower() or 'method name' in issue.lower() for issue in style_issues):
                 suggestions.append("Use camelCase for method and variable names (e.g., calculateTotal, getUserName).")
-            if any('uppercase' in issue.lower() or 'class name' in issue.lower() for issue in analysis['style_issues']):
+            if any('uppercase' in issue.lower() or 'class name' in issue.lower() for issue in style_issues):
                 suggestions.append("Use PascalCase for class names (e.g., DataProcessor, UserManager).")
-            if any('magic number' in issue.lower() for issue in analysis['style_issues']):
+            if any('magic number' in issue.lower() for issue in style_issues):
                 suggestions.append("Replace magic numbers with named constants (static final) for clarity and maintainability.")
-            if any('line length' in issue.lower() or 'exceeds' in issue.lower() for issue in analysis['style_issues']):
+            if any('line length' in issue.lower() or 'exceeds' in issue.lower() for issue in style_issues):
                 suggestions.append("Keep line length under 120 characters for better readability.")
         else:
-            if any('missing-docstring' in issue for issue in analysis['style_issues']):
+            if any('missing-docstring' in issue for issue in style_issues):
                 suggestions.append("Add docstrings for modules, classes, and functions to improve readability and maintenance.")
-            if any('invalid-name' in issue for issue in analysis['style_issues']):
+            if any('invalid-name' in issue for issue in style_issues):
                 suggestions.append("Use clear, descriptive variable/function names (snake_case) for better readability.")
-            if any('unused-import' in issue for issue in analysis['style_issues']):
+            if any('unused-import' in issue for issue in style_issues):
                 suggestions.append("Remove unused imports to keep the code clean and reduce cognitive load.")
-            if any('unused-variable' in issue for issue in analysis['style_issues']):
+            if any('unused-variable' in issue for issue in style_issues):
                 suggestions.append("Remove or use unused variables; they often signal dead code or logic errors.")
 
         # Complexity issues
@@ -2179,6 +2299,46 @@ def generate_pdf(file_id):
         }
     except Exception as e:
         return jsonify({'error': f'PDF generation error: {str(e)}'}), 500
+
+@app.route('/view_code/<int:file_id>')
+@login_required
+def view_code(file_id):
+    """View the source code of an uploaded file"""
+    if not db:
+        return jsonify({'error': 'Database not available'}), 503
+    
+    try:
+        user_id = session.get('user_id')
+        user = db.get_user_by_id(user_id)
+        file_info = db.get_file_by_id(file_id)
+        
+        if not file_info or file_info[1] != user_id:
+            return jsonify({'error': 'Unauthorized'}), 403
+        
+        stored_filename = file_info[3] if len(file_info) > 3 and file_info[3] else file_info[2]
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], stored_filename)
+        
+        if not os.path.exists(filepath):
+            return jsonify({'error': 'File not found'}), 404
+        
+        # Read file content
+        with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+            code_content = f.read()
+        
+        # Get language for syntax highlighting
+        language = CodeAnalyzer.get_file_language(filepath)
+        
+        return jsonify({
+            'success': True,
+            'filename': file_info[2],
+            'language': language,
+            'code': code_content,
+            'lines': len(code_content.split('\n'))
+        }), 200
+        
+    except Exception as e:
+        print(f"Code view error: {e}")
+        return jsonify({'error': f'Error loading code: {str(e)}'}), 500
 
 # ============================================================================
 # ERROR HANDLERS

@@ -116,6 +116,24 @@ function initDashboardHandlers() {
     const deleteModal = document.getElementById('delete-modal');
     if (!deleteModal) return; // Exit if not on dashboard page
 
+    document.querySelectorAll('.file-viewer-trigger').forEach((element) => {
+        element.addEventListener('click', () => {
+            const fileId = element.dataset.fileId;
+            const filename = element.dataset.filename || '';
+            if (window.openCodeViewer) {
+                window.openCodeViewer(fileId, filename);
+            }
+        });
+    });
+
+    document.querySelectorAll('.delete-trigger').forEach((element) => {
+        element.addEventListener('click', () => {
+            const fileId = element.dataset.fileId;
+            const filename = element.dataset.filename || '';
+            window.confirmDelete(fileId, filename);
+        });
+    });
+
     window.confirmDelete = function(fileId, filename) {
         document.getElementById('modal-filename').textContent = filename;
         document.getElementById('delete-form').action = '/delete/' + fileId;
