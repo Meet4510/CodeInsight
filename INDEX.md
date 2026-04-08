@@ -9,6 +9,7 @@
 4. **[setup.sh](setup.sh)** - Automated setup for Linux/Mac
 
 ### 📖 Documentation
+0. **[COMPLETE_PROJECT_DOCUMENTATION.md](COMPLETE_PROJECT_DOCUMENTATION.md)** - Master as-implemented documentation (full project coverage)
 1. **[README.md](README.md)** - Complete project documentation
 2. **[PROJECT_SUMMARY.md](PROJECT_SUMMARY.md)** - Full technical overview
 3. **[database.sql](database.sql)** - Database schema
