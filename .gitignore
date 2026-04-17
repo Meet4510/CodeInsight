@@ -9,6 +9,8 @@ __pycache__/
 
 # Environment variables
 .env
+*firebase-adminsdk*.json
+*service-account*.json
 
 # Uploads (optional)
 uploads/*
